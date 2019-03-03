@@ -1,0 +1,94 @@
+\documentclass[14pt]{scrartcl}
+
+\usepackage[ngerman]{babel}
+\usepackage{fontspec}
+\usepackage{ragged2e}
+\usepackage{geometry}
+\usepackage{scrlayer-scrpage}
+\usepackage{colortbl}
+\usepackage{graphicx}
+\usepackage{setspace}
+\usepackage{amssymb} % \bigstar
+
+\setmainfont{Source Sans Pro}
+\setsansfont{Source Sans Pro}
+
+\geometry{landscape,top=1cm, bottom=1cm, left=1cm, right=1cm, head=0cm, foot=0cm}
+
+\chead[]{}
+\ohead[]{\rightmark}
+\cfoot[]{}
+
+
+% Nametag special hacks
+\setlength{\fboxsep}{0pt}
+\setlength{\fboxrule}{.5pt}
+\setlength{\parindent}{0pt}
+\newsavebox{\ntcontent}
+
+\begin{document}
+\renewcommand{\arraystretch}{0}
+
+\newlength\cardWidth
+\setlength\cardWidth{13.3cm}
+((% for t_list in talks|batch(4) %))
+%\begin{tabular}{ @{} p{\cardWidth} @{\hspace{\fboxrule}} p{\cardWidth} @{} }
+\begin{tabular}{|l|l|}
+  \hline
+  ((% for t in t_list %))
+      %\fbox{%
+        %\hspace{3mm}
+        \begin{minipage}[b][9.3cm][t]{\cardWidth}
+          \vspace{4mm}
+          \RaggedRight
+          {\Large
+            \textbf{((( t["title"]|e )))}
+          }
+
+          \vspace{3mm}
+          ((% for s in t["speakers"] %)) %
+            ((( s["name"]|e )))((% if not loop.last %)),((% endif %))
+          ((% endfor %))
+
+              ((( t["submission_type"]["de"]|truncate(34, false, " …", 5)|e ))) ((% if t["do_not_record"] %)) \textbf{nicht aufzeichnen}((% endif %))
+              ((( t["code"]|e )))
+          
+          {
+            \Large
+            ((% set average_score_rounded = t["average_score"] * 2|round(1)|int %))
+            ((% set average_score_rounded_int = average_score_rounded|int %))
+            ((% if t["review_count"] > 0 and average_score_rounded_int >= 1 %))
+                $ ((% for count in range(1, average_score_rounded_int + 1, 1) %))\bigstar ((% endfor %)) $ 
+            ((% endif %))%
+            ((% if t["review_count"] > 0 %)) %
+                ((( t["average_score"]|round(1) ))) [((( t["review_count"] )))]
+            ((% endif %))
+          }
+
+          {
+            \vspace{3mm}
+            \footnotesize
+            ((% set max_print_reviews_count = 8 - ((((t["title"])|length) / 32)|int) - (((t["speaker_names"] | length) / 55)|int) %))
+            ((% for r in t["reviews"]|sort(reverse=true, attribute="text_length") %)) %
+                ((% if loop.index <= max_print_reviews_count %)) %
+                  ((% if r["text"]|length > 0 %)) %
+                      ((( (r["score"]|string + " " + r["name_parts"][0] + ": " + r["text"])|truncate(78, true, "…", 0)|e )))\linebreak %
+                  ((% endif %)) %
+                ((% endif %)) %
+            ((% endfor %))%
+          }
+
+        \end{minipage}%
+        %\hspace{3mm}
+      %}
+    ((% if loop.index is divisibleby 2 %))%
+        \\%
+        \hline%
+    ((% else %))%
+        &%
+    ((% endif %))%
+  ((% endfor %))
+\end{tabular}
+\newpage
+((% endfor %))%
+\end{document}%

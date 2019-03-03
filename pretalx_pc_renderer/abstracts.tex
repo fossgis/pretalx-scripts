@@ -1,0 +1,34 @@
+\documentclass[a4paper]{scrartcl}
+
+\usepackage[ngerman]{babel}
+\usepackage{fontspec}
+\usepackage{microtype}
+\usepackage{hyperref}
+
+\setmainfont{Source Sans Pro}
+\setsansfont{Source Sans Pro}
+
+\begin{document}
+\renewcommand{\arraystretch}{0}
+
+\newlength\cardWidth
+\setlength\cardWidth{13.3cm}
+((% for t in talks %))
+  \section{((( t["title"]|e )))}
+  
+  \emph{%
+    ((% for s in t["speakers"] %)) %
+      ((( s["name"]|e )))((% if not loop.last %)),((% endif %))%
+    ((% endfor %))%
+  }
+ 
+  \noindent ((( t["submission_type"]["de"]|e ))) ((% if t["do_not_record"] %)) \textbf{nicht aufzeichnen}((% endif %))\\
+      \url{https://pretalx.com/orga/event/fossgis2019/submissions/((( t["code"]|e )))}
+
+  \vspace{1\baselineskip}
+  \noindent {\bfseries ((( t["abstract"]|e )))}
+
+  \vspace{1\baselineskip}
+  \noindent ((( t["description"]|e )))
+((% endfor %))
+\end{document}%
