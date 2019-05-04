@@ -80,6 +80,9 @@ if args.reviews:
             sys.stderr.write("ERROR: Reviews file is empty.\n")
             exit(1)
         for r in reviews_raw["results"]:
+            if r["submission"] not in submissions:
+                # Pretalx bug #689: reviews API returns reviews of deleted submissions
+                continue
             submission = submissions[r["submission"]]
             name_parts = r["user"].strip().split(" ")
             if len(name_parts) == 0:
@@ -130,4 +133,4 @@ elif args.output_format == "txt":
 
 template = jinja2_env.get_template(args.template)
 with open(args.output_filename, "w") as outfile:
-    outfile.write(template.render(talks=submissions_list, max_score=args.max_score))
+    outfile.write(template.render(talks=submissions_list, max_score=args.max_score, locale=args.locale))

@@ -22,7 +22,7 @@
     ((% endfor %))%
   }
  
-  \noindent ((( t["submission_type"]["de"]|e ))) ((% if t["do_not_record"] %)) \textbf{nicht aufzeichnen}((% endif %))\\
+  \noindent ((( t["submission_type"][((( locale )))]|e ))) ((% if t["do_not_record"] %)) \textbf{nicht aufzeichnen}((% endif %))\\
       \url{https://pretalx.com/orga/event/fossgis2019/submissions/((( t["code"]|e )))}
 
   \vspace{1\baselineskip}
@@ -30,5 +30,16 @@
 
   \vspace{1\baselineskip}
   \noindent ((( t["description"]|e )))
+
+  \vspace{1\baselineskip}
+  ((% if t["answers"]|length > 1 %))
+    ((% for q in t["answers"] %))
+        ((% if q["question"]["id"] != 98 and q["answer"] != "" %))
+          \noindent \textbf{((( q["question"]["question"][((( locale )))]|e)))}\\
+          ((( q["answer"]|e )))
+
+        ((% endif %))
+    ((% endfor %))
+  ((% endif %))
 ((% endfor %))
 \end{document}%
