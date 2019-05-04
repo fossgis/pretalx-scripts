@@ -22,7 +22,12 @@ This tool compares ticket sales by Pretix (it uses the JSON export) with a list 
 
 ## Pretalx JSON to CSV Converter
 
-Generate CSV files for mass mailings to speakers.
+Generate CSV files with accepted/confirmed submissions and their scheduled slots for mass mailings to speakers.
+
+
+## [Review Analysis](review_analysis/README.md)
+
+Plot some statistics about reviews using Matplotlib.
 
 
 ## License
