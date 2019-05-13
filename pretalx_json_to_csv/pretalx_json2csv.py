@@ -92,7 +92,7 @@ with open(args.speakers_file, "r") as infile:
 for s in speakers:
     for sub in s["submissions"]:
         talk_info = speakers_by_talk.get(sub, [])
-        talk_info.append({"name": s["name"], "email": s["email"], "code": s["code"]})
+        talk_info.append({"name": s["name"], "email": s["email"], "code": s["code"], "answers": s["answers"]})
         speakers_by_talk[sub] = talk_info
 
 speakers_with_accepted_submissions = set()
@@ -126,19 +126,31 @@ if args.no_repeat:
             writer.writerow(list(s))
     sys.exit(0)
 
+answered_questions_over_all_submissions = set()
+if args.question_answers:
+    for t in talks:
+        for q in t.get("answers", []):
+            answered_questions_over_all_submissions.add(q["question"]["id"])
+    for s in speakers:
+        for q in s.get("answers", []):
+            answered_questions_over_all_submissions.add(q["question"]["id"])
+answered_questions_over_all_submissions = list(answered_questions_over_all_submissions)
 
 with open(args.csv_file, "w") as outfile:
     writer = csv.writer(outfile, delimiter=";")
-    header_row = ["names","email", "start", "end", "state", "submission_type", "title"]
+    header_row = ["code", "names","email", "start", "end", "state", "submission_type", "title"]
     if args.rating:
         header_row.append("rating_average")
         header_row.append("rating_count")
+    if args.question_answers:
+        header_row += answered_questions_over_all_submissions
     writer.writerow(header_row)
     for t in talks:
         #if args.type_only is not None and args.type_only != t["state"]:
         #    continue
         if args.all_in_one:
             row = [
+                t["code"],
                 t["names"],
                 t["email"],
                 t["slot"]["start"],
@@ -153,12 +165,18 @@ with open(args.csv_file, "w") as outfile:
             else:
                 row.append(None)
                 row.append(None)
+            if args.question_answers:
+                answers = {q["question"]["id"]:q["answer"] for q in t["answers"]}
+                # We have to check if the question is available in the talk dict because some questions are targeted to speakers only
+                for q in answered_questions_over_all_submissions:
+                    row.append(answers.get(q))
             writer.writerow(row)
 
         else:
             for s in speakers_by_talk[t["code"]]:
                 #writer.writerow(t)
                 row = [
+                    t["code"],
                     s["name"],
                     s["email"],
                     t["slot"]["start"],
@@ -174,4 +192,10 @@ with open(args.csv_file, "w") as outfile:
                     else:
                         row.append(None)
                         row.append(None)
+                if args.question_answers:
+                    answers = {q["question"]["id"]:q["answer"] for q in t["answers"]}
+                    answers.update({q["question"]["id"]:q["answer"] for q in s["answers"]})
+                    # We have to check if the question is available in the talk dict because some questions are targeted to speakers only
+                    for q in answered_questions_over_all_submissions:
+                        row.append(answers.get(q))
                 writer.writerow(row)
