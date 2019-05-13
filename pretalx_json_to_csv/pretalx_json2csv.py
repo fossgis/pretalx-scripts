@@ -18,7 +18,12 @@ def talk_in_range(time_range, talk_slot):
 
 parser = argparse.ArgumentParser(description="Convert schedule JSON to CSV")
 parser.add_argument("-a", "--all-in-one", help="one line per speaker and talk", action="store_true")
+parser.add_argument("-A", "--all", help="include submissions without slots and rejected/cancelled submissions if not excluded by other filters", action="store_true")
+parser.add_argument("-l", "--locale", type=str, help="locale of the event", required=True)
 parser.add_argument("--no-repeat", help="don't repeat a speaker (just write a list of speakers, one speaker per line and one line per speaker)", action="store_true")
+parser.add_argument("-q", "--question-answers", help="output answers by speakers on the questions asked in the CfP form", action="store_true")
+parser.add_argument("-R", "--reviews-file", help="reviews JSON file", type=argparse.FileType("r"))
+parser.add_argument("--rating", help="output rating (average and count)", action="store_true")
 parser.add_argument("-s", "--state-only", help="only this state (e.g. 'submitted' or 'accepted')", type=str, default=None)
 parser.add_argument("-t", "--type-only", help="only this submission type", type=str, default=None)
 parser.add_argument("-f", "--date_from", help="start date YYYY-mm-dd")
@@ -28,14 +33,22 @@ parser.add_argument("speakers_file", help="JSON file with speakers (/speakers en
 parser.add_argument("csv_file", help="CSV output file")
 args = parser.parse_args()
 
+if args.rating and not args.reviews_file:
+    sys.stderr.write("ERROR: reviews.json missing\n")
+    exit(1)
+
 talks = []
 with open(args.talks_file, "r") as infile:
     talks = json.load(infile)["results"]
 
-talks = [x for x in talks if x.get("slot", None) not in [None, []]]
+if not args.all:
+    talks = [x for x in talks if x.get("slot", None) not in [None, []]]
 
 # format dates
 for t in talks:
+    if args.all and t.get("slot") is None:
+        t["slot"] = {"start": None, "end": None}
+        continue
     for field in ["start", "end"]:
         m = datetime.datetime.strptime(t["slot"][field], PRETALX_DATE_FORMAT)
         m = m.astimezone(CET)
@@ -54,7 +67,22 @@ if args.state_only:
     talks = [t for t in talks if t["state"] == args.state_only]
 
 if args.type_only:
-    talks = [t for t in talks if t["submission_type"]["de"] == args.type_only]
+    talks = [t for t in talks if t["submission_type"][args.locale] == args.type_only]
+
+reviews = {}
+if args.reviews_file:
+    reviews_raw = json.load(args.reviews_file)["results"]
+    # assign review data to talks
+    for r in reviews_raw:
+        if r["submission"] in reviews:
+            reviews[r["submission"]].append(r)
+        else:
+            reviews[r["submission"]] = [r]
+    for t in talks:
+        reviews_this = reviews.get(t["code"])
+        if reviews_this is not None:
+            t["ratings_average"] = float(sum([r["score"] for r in reviews_this])) / len(reviews_this)
+            t["ratings_count"] = len(reviews_this)
 
 speakers_by_talk = {}
 spakers = []
@@ -69,7 +97,11 @@ for s in speakers:
 
 speakers_with_accepted_submissions = set()
 for t in talks:
-    speakers_this = speakers_by_talk[t["code"]]
+    try:
+        speakers_this = speakers_by_talk[t["code"]]
+    except KeyError as err:
+        sys.stderr.write("Failed to find speaker of talk {} {}!\n".format(t["code"], t["title"]))
+        continue
     for s in speakers_this:
         speakers_with_accepted_submissions.add(s["code"])
     if args.all_in_one:
@@ -79,6 +111,9 @@ for t in talks:
 
 speakers_for_output = set()
 if args.no_repeat:
+    if args.rating:
+        sys.stderr.write("ERROR: Cannot write review information if submissions of a speaker are squashed into one line\n")
+        exit(1)
     for submission_id, talk_info in speakers_by_talk.items():
         for s in talk_info:
             if s["code"] not in speakers_with_accepted_submissions:
@@ -94,36 +129,49 @@ if args.no_repeat:
 
 with open(args.csv_file, "w") as outfile:
     writer = csv.writer(outfile, delimiter=";")
-    writer.writerow(["names","email", "start", "end", "state", "submission_type", "title"])
-    #writer = csv.DictWriter(outfile, ["names","email", "start", "end", "state", "submission_type", "title"], extrasaction="ignore", delimiter=";")
-    #writer.writeheader()
+    header_row = ["names","email", "start", "end", "state", "submission_type", "title"]
+    if args.rating:
+        header_row.append("rating_average")
+        header_row.append("rating_count")
+    writer.writerow(header_row)
     for t in talks:
         #if args.type_only is not None and args.type_only != t["state"]:
         #    continue
         if args.all_in_one:
-                writer.writerow(
-                        [
-                            t["names"],
-                            t["email"],
-                            t["slot"]["start"],
-                            t["slot"]["end"],
-                            t["state"],
-                            t["submission_type"]["de"],
-                            t["title"]
-                        ]
-                )
+            row = [
+                t["names"],
+                t["email"],
+                t["slot"]["start"],
+                t["slot"]["end"],
+                t["state"],
+                t["submission_type"][args.locale],
+                t["title"]
+            ]
+            if t.get("ratings_average") is not None:
+                row.append("{:.2f}".format(t.get("ratings_average")))
+                row.append(t.get("ratings_count"))
+            else:
+                row.append(None)
+                row.append(None)
+            writer.writerow(row)
 
         else:
             for s in speakers_by_talk[t["code"]]:
                 #writer.writerow(t)
-                writer.writerow(
-                        [
-                            s["name"],
-                            s["email"],
-                            t["slot"]["start"],
-                            t["slot"]["end"],
-                            t["state"],
-                            t["submission_type"]["de"],
-                            t["title"]
-                        ]
-                )
+                row = [
+                    s["name"],
+                    s["email"],
+                    t["slot"]["start"],
+                    t["slot"]["end"],
+                    t["state"],
+                    t["submission_type"][args.locale],
+                    t["title"]
+                ]
+                if args.rating:
+                    if t.get("ratings_average") is not None:
+                        row.append("{:.2f}".format(t.get("ratings_average")))
+                        row.append(t.get("ratings_count"))
+                    else:
+                        row.append(None)
+                        row.append(None)
+                writer.writerow(row)
