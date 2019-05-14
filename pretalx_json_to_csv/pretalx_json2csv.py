@@ -194,7 +194,7 @@ with open(args.csv_file, "w") as outfile:
                         row.append(None)
                 if args.question_answers:
                     answers = {q["question"]["id"]:q["answer"] for q in t["answers"]}
-                    answers.update({q["question"]["id"]:q["answer"] for q in s["answers"]})
+                    answers.update({q["question"]["id"]:q["answer"] for q in s["answers"] if q["question"]["target"] != "submission" or q["submission"] == t["code"]})
                     # We have to check if the question is available in the talk dict because some questions are targeted to speakers only
                     for q in answered_questions_over_all_submissions:
                         row.append(answers.get(q))
