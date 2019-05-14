@@ -50,7 +50,7 @@
             ((( s["name"]|e )))((% if not loop.last %)),((% endif %))
           ((% endfor %))
 
-              ((( t["submission_type"]["de"]|truncate(34, false, " …", 5)|e ))) ((% if t["do_not_record"] %)) \textbf{nicht aufzeichnen}((% endif %))
+              ((( t["submission_type"][((( locale )))]|truncate(34, false, " …", 5)|e ))) ((% if t["do_not_record"] %)) \textbf{nicht aufzeichnen}((% endif %))
               ((( t["code"]|e )))
           
           {
