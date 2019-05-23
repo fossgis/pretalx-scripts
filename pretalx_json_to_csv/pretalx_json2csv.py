@@ -81,8 +81,10 @@ if args.reviews_file:
     for t in talks:
         reviews_this = reviews.get(t["code"])
         if reviews_this is not None:
-            t["ratings_average"] = float(sum([r["score"] for r in reviews_this])) / len(reviews_this)
             t["ratings_count"] = len(reviews_this)
+            reviews_this_scored = [r for r in reviews_this if r["score"] is not None]
+            if reviews_this_scored is not None:
+                t["ratings_average"] = float(sum([r["score"] for r in reviews_this_scored])) / len(reviews_this_scored)
 
 speakers_by_talk = {}
 spakers = []
