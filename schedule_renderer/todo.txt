@@ -1,0 +1,4 @@
+* same order of room columns in table header and body
+* tracks
+* gap handling/60 minutes talks
+* large breaks
