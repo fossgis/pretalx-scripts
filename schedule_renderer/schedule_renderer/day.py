@@ -11,5 +11,8 @@ class Day:
         if room not in self.rooms:
             self.rooms.append(room)
 
+    def sort_rooms(self):
+        self.rooms.sort(key=lambda r: r.order_key())
+
     def weekday(d):
         return d.date.strftime("%A")

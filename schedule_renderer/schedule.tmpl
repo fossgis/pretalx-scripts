@@ -6,8 +6,13 @@ td { border-style: solid; border-width: 1px; border-color: black;}
 </head>
 
 <body>
-{% macro session_cell(session) -%}
-<td rowspan="{{ session.slot_count }}" id="session_{{ session.code }}">
+{% macro session_cell(session, day) -%}
+{% if not session %}
+<td></td>
+{% elif not session.is_a_talk %}
+<td>{{ session.title }}</td>
+{% elif session.render_content %}
+<td rowspan="{{ session.row_count }}" id="session_{{ session.talk.code }}">
 {#    {% if "workshop" in event.extra_tags %}
     <span class="extraTag">workshop</span>
     {% elif "discussion" in event.extra_tags %}
@@ -18,21 +23,20 @@ td { border-style: solid; border-width: 1px; border-color: black;}
     <span class="extraTag">{% if lang == "en" %}panel{% elif lang == "it" %}Tavola rotonda{% endif %}</span>
     {% endif %}
 #}
-    <a href="/2019/sessions/{{ session.code }}">{{session.title}}</a>
+    {% if not session.recording %}
+      <img class="noRecordingDark" src="/img/novideo-dark.svg" height="25" alt="no recording" title="This event will not be recorded.">
+    {% endif %}
+    {{session.talk.title}}
     <br>
     <span class="speaker">{{session.speaker_names}}
 {#
-      {% if session.organisation != "" %}
-        ({{session.organisation}})
-      {% endif %}
-#}
-{#
-      {% if 'no_record' in event.extra_tags %}
-        <img class="noRecordingDark" src="/img/novideo-dark.svg" height="25" alt="no recording" title="This event will not be recorded.">
+      {% if session.organisations != "" %}
+        ({{session.organisations}})
       {% endif %}
 #}
     </span>
 </td>
+{% endif %}
 {%- endmacro %}
 
     <div class='pad4y col12 clearfix prose'>
@@ -60,23 +64,23 @@ td { border-style: solid; border-width: 1px; border-color: black;}
                 <tr class="fill-purple dark">
                     <td width="55px"></td>
                     {% for room in day['rooms'] %}
-                        <td>{{ room['name']}}{% if not room['video']  %}<img class="noRecordingBright" src="/img/novideo-bright.svg" height="25" alt="no recording" title="Sessions in this room will not be recorded.">{% endif %}</td>
+                        <td>{{ room['name']}}{% if not room['video']  %} <img class="noRecordingBright" src="/img/novideo-bright.svg" height="25" alt="no recording" title="Sessions in this room will not be recorded.">{% endif %}</td>
                     {% endfor %}
                     {% if right_time %}<td></td>{% endif %}
                 </tr>
             </thead>
             <tbody>
                 {% for slot in slots %}
-		{% if slot.start|equal_day(day.date) %}
+		{% if slot.start|equal_day(day.date) and slot.rendering_required() %}
                     <tr>
-                        <td class="fill-darken0">{{ slot['start'].strftime('%H:%M') }}</td>
+                        <td class="fill-darken0">{{ slot['start'].astimezone(timezone).strftime('%H:%M') }}</td>
                         {% if slot is none %}
-                            <td></td>
-                        {% elif slot['is_break'] %}
-                            <td colspan="3" class="fill-darken0 scheduleBreak">Break</td>
+                            <td colspan="{{ slot['sessions']|length }}" class="scheduleBreak"></td>
+                        {% elif slot.is_break() %}
+                            <td colspan="{{ slot['sessions']|length }}" class="fill-darken0 scheduleBreak">Break</td>
                         {% else %}
                             {% for session in slot['sessions'] %}
-                              {{ session_cell(session['talk']) }}
+                              {{ session_cell(session, day) }}
                             {% endfor %}
                         {% endif %}
                         {% if right_time %}<td class="fill-darken0">{{ slot['start'].strftime('%H:%M') }}</td>{% endif %}

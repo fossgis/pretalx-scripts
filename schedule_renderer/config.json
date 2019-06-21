@@ -1,3 +1,32 @@
 {
-  "no_video_rooms": ["GHS", "HSO", "HSW"]
+  "video_rooms": ["GHS", "HSO", "HSW"],
+  "timezone": "Europe/Berlin",
+  "max_length": 240,
+  "breaks": [
+    {"start": "2019-09-21T11:00:00+02:00", "end": "2019-09-21T11:30:00+02:00", "name": {"en": "Coffee break"}},
+    {"start": "2019-09-21T13:00:00+02:00", "end": "2019-09-21T14:30:00+02:00", "name": {"en": "Lunch (and photo at 14:15)"}},
+    {"start": "2019-09-21T16:00:00+02:00", "end": "2019-09-21T16:30:00+02:00", "name": {"en": "Coffee break"}},
+    {"start": "2019-09-22T11:00:00+02:00", "end": "2019-09-22T11:30:00+02:00", "name": {"en": "Coffee break"}},
+    {"start": "2019-09-22T13:00:00+02:00", "end": "2019-09-22T14:00:00+02:00", "name": {"en": "Lunch"}},
+    {"start": "2019-09-22T16:00:00+02:00", "end": "2019-09-22T16:30:00+02:00", "name": {"en": "Coffee break"}},
+    {"start": "2019-09-23T11:00:00+02:00", "end": "2019-09-23T11:30:00+02:00", "name": {"en": "Coffee break"}},
+    {"start": "2019-09-23T13:00:00+02:00", "end": "2019-09-23T14:00:00+02:00", "name": {"en": "Lunch"}},
+    {"start": "2019-09-23T15:30:00+02:00", "end": "2019-09-23T16:00:00+02:00", "name": {"en": "Coffee break"}}
+  ],
+  "extra_sessions": [
+    {"start": "2019-09-22T09:00:00+02:00", "end": "2019-09-21T09:20:00+02:00", "room_id": 73, "title": {"en": "Academic track"}},
+    {"start": "2019-09-22T09:30:00+02:00", "end": "2019-09-21T09:50:00+02:00", "room_id": 73, "title": {"en": "Academic track"}},
+    {"start": "2019-09-22T10:00:00+02:00", "end": "2019-09-21T10:20:00+02:00", "room_id": 73, "title": {"en": "Academic track"}},
+    {"start": "2019-09-22T10:30:00+02:00", "end": "2019-09-21T10:50:00+02:00", "room_id": 73, "title": {"en": "Academic track"}},
+    {"start": "2019-09-22T11:30:00+02:00", "end": "2019-09-21T11:50:00+02:00", "room_id": 73, "title": {"en": "Academic track"}},
+    {"start": "2019-09-22T12:00:00+02:00", "end": "2019-09-21T12:20:00+02:00", "room_id": 73, "title": {"en": "Academic track"}},
+    {"start": "2019-09-22T12:30:00+02:00", "end": "2019-09-21T12:50:00+02:00", "room_id": 73, "title": {"en": "Academic track"}},
+    {"start": "2019-09-22T14:00:00+02:00", "end": "2019-09-21T14:20:00+02:00", "room_id": 73, "title": {"en": "Academic track"}},
+    {"start": "2019-09-22T14:30:00+02:00", "end": "2019-09-21T14:50:00+02:00", "room_id": 73, "title": {"en": "Academic track"}},
+    {"start": "2019-09-22T15:00:00+02:00", "end": "2019-09-21T15:20:00+02:00", "room_id": 73, "title": {"en": "Academic track"}},
+    {"start": "2019-09-22T15:30:00+02:00", "end": "2019-09-21T15:50:00+02:00", "room_id": 73, "title": {"en": "Academic track"}},
+    {"start": "2019-09-22T16:30:00+02:00", "end": "2019-09-21T16:50:00+02:00", "room_id": 73, "title": {"en": "Academic track"}},
+    {"start": "2019-09-22T17:00:00+02:00", "end": "2019-09-21T17:20:00+02:00", "room_id": 73, "title": {"en": "Academic track"}},
+    {"start": "2019-09-22T17:30:00+02:00", "end": "2019-09-21T17:50:00+02:00", "room_id": 73, "title": {"en": "Academic track"}}
+  ]
 }
