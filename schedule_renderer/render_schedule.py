@@ -27,13 +27,6 @@ def transform_pretalx_date(d):
     return d[:22] + d[-2:]
 
 
-def url_to_code(u):
-    parts = u.split("/")
-    if parts[-1] == "":
-        parts = parts[:-1]
-    return parts[-1]
-
-
 def read_datetime(d):
     return datetime.datetime.strptime(transform_pretalx_date(d), PRETALX_DATE_FMT)
 
@@ -63,7 +56,10 @@ event_timezone = pytz.timezone(config["timezone"])
 
 talks = json.load(args.input_file)["results"]
 # Drop talks without day and room.
-talks = [ t for t in talks if t.get("room") and t.get("start") ]
+if args.editor_api:
+    talks = [ t for t in talks if t.get("room") and t.get("start") ]
+else:
+    talks = [ t for t in talks if t.get("slot") and t.get("slot").get("start") and t.get("slot").get("room") ]
 
 if args.confirmed_only:
     talks = [ t for t in talks if t["state"] == "confirmed" ]
@@ -72,16 +68,22 @@ rooms_raw = json.load(args.rooms_file)["results"]
 
 # preprocess rooms
 rooms = {}
+rooms_by_name = {}
 for r in rooms_raw:
     video = r["name"][args.locale] in config["video_rooms"]
     rooms[r["id"]] = Room.build(r, args.locale, video)
+    rooms_by_name[r["name"][args.locale]] = rooms[r["id"]]
 
 days = []
 
-# add session codes
-if args.editor_api:
-    for t in talks:
-        t["code"] = url_to_code(t["url"])
+# Move start and end of slot if not using data from editor API
+if not args.editor_api:
+    for i in range(0, len(talks)):
+        t = talks[i]
+        if not args.editor_api:
+            t["start"] = t["slot"]["start"]
+            t["end"] = t["slot"]["end"]
+            t["room"] = rooms_by_name[t["slot"]["room"][args.locale]].id
 
 # Go through talks and look which days and start times we have
 for t in talks:

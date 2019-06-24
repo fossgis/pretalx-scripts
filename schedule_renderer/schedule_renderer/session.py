@@ -6,6 +6,13 @@ def transform_pretalx_date(d):
     """Remove last colon."""
     return datetime.datetime.strptime(d[:22] + d[-2:], PRETALX_DATE_FMT)
 
+def url_to_code(u):
+    parts = u.split("/")
+    if parts[-1] == "":
+        parts = parts[:-1]
+    return parts[-1]
+
+
 class AbstractSession:
     def __init__(self, start, end, room):
         self.start = start
@@ -83,6 +90,10 @@ class Session(AbstractSession):
         super(Session, self).__init__(transform_pretalx_date(talk["start"]), transform_pretalx_date(talk["end"]), room)
         self.room = room
         self.talk = talk
+        if "url" in talk and "code" not in talk:
+            self.code = url_to_code(talk["url"])
+        else:
+            self.code = talk.get("code", "")
         self.speaker_names = ", ".join([ s["name"] for s in talk["speakers"] ])
         self.row_count = 1
         self.col_count = 1
