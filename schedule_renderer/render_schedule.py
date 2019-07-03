@@ -5,6 +5,7 @@ import datetime
 import jinja2
 import json
 import logging
+import markdown
 import os
 import pytz
 import sys
@@ -12,7 +13,7 @@ import sys
 from schedule_renderer.day import Day
 from schedule_renderer.room import Room
 from schedule_renderer.slot import Slot
-from schedule_renderer.session import Session, ContinuedSession, Break, ExtraSession
+from schedule_renderer.session import Session, ContinuedSession, Break, ExtraSession, escape_yaml_value_quote
 
 PRETALX_DATE_FMT = "%Y-%m-%dT%H:%M:%S%z"
 OUTPUT_TIME_FMT = "%H:%M"
@@ -42,10 +43,14 @@ parser.add_argument("-c", "--config", type=argparse.FileType("r"), help="configu
 parser.add_argument("--confirmed-only", action="store_true", help="confirmed talks only")
 parser.add_argument("--editor-api", action="store_true", help="talks JSON file is from the internal API used by the schedule editor, not from the public API")
 parser.add_argument("-l", "--locale", type=str, help="locale")
+parser.add_argument("--no-abstracts", action="store_true", help="don't render abstract detail pages")
+parser.add_argument("-s", "--speakers", type=argparse.FileType("r"), help="JSON file from /speakers API endpoint")
 parser.add_argument("rooms_file", type=argparse.FileType("r"), help="rooms export of /rooms API enpoint")
 parser.add_argument("input_file", type=argparse.FileType("r"), help="input file (talks JSON file or /talks API endpoint)")
 parser.add_argument("template", type=str, help="template file")
 parser.add_argument("output_file", type=argparse.FileType("w"), help="HTML output file")
+parser.add_argument("abstract_template", type=str, help="template file for abstracts")
+parser.add_argument("abstracts_out_dir", type=str, help="output directory for abstracts")
 args = parser.parse_args()
 
 config = {"no_video_rooms": [], "timezone": "UTC", "break_min_threshold": 10, "max_length": 240, "extra_sessions": []}
@@ -115,7 +120,18 @@ days.sort(key=lambda d: d.date)
 # Go through talks and look for sessions
 sessions = []
 for t in talks:
-    sessions.append(Session(rooms[t["room"]], t))
+    sessions.append(Session(rooms[t["room"]], t, args.locale))
+
+# load speaker details
+if args.speakers:
+    speakers_raw = json.load(args.speakers)["results"]
+    speakers = { s["code"]:s for s in speakers_raw }
+    for s in sessions:
+        s.add_speaker_details(speakers, args.locale)
+
+# add affilations to speaker names for output
+for s in sessions:
+    s.set_speaker_names(config.get("affiliation_question_id"))
 
 sessions += Break.import_config(config["breaks"], days, args.locale)
 sessions += extra_sessions
@@ -226,3 +242,21 @@ schedule_tmpl_file = os.path.basename(os.path.abspath(args.template))
 template_table = env_table.get_template(schedule_tmpl_file)
 result = template_table.render(days=days, slots=sessions_starts, right_time=False, timezone=event_timezone)
 args.output_file.write(result)
+
+abstract_template_searchpath = os.path.dirname(os.path.abspath(args.abstract_template))
+# no escaping because it is handled by the markdown module and Jekyll
+env_abstr = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=abstract_template_searchpath),
+                               trim_blocks=True,
+                               autoescape=False)
+env_abstr.filters["weekday"] = Day.weekday
+env_abstr.filters["equal_day"] = equal_day
+env_abstr.filters["e"] = escape_yaml_value_quote
+abstr_tmpl_file = os.path.basename(os.path.abspath(args.abstract_template))
+template_abstr = env_abstr.get_template(abstr_tmpl_file)
+if not args.no_abstracts:
+    for t in sessions:
+        if not t.is_break and t.render_abstract:
+            sys.stderr.write("rendering abstract of {} {}\n".format(t.code, t.title))
+            outfile_path = os.path.join(args.abstracts_out_dir, t.code) + ".html"
+            with open(outfile_path, "w") as abstr_file:
+                abstr_file.write(template_abstr.render(session=t, video_rooms=config["video_rooms"], short_description_html=markdown.markdown(t.short_abstract), description_html=markdown.markdown(t.long_abstract)))

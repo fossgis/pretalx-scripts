@@ -1,4 +1,6 @@
 import datetime
+from .question import Question
+from .speaker import Speaker
 
 PRETALX_DATE_FMT = "%Y-%m-%dT%H:%M:%S%z"
 
@@ -13,6 +15,16 @@ def url_to_code(u):
     return parts[-1]
 
 
+def escape_yaml_value_quote(text):
+    """
+    Escape text to be inserted into the YAML headers of markdown files.
+    """
+    # replace quotation mark by escaped quotation mark
+    if text == "" or text is None:
+        return ""
+    return text.replace("\"", "\\\"")
+
+
 class AbstractSession:
     def __init__(self, start, end, room):
         self.start = start
@@ -20,7 +32,7 @@ class AbstractSession:
         self.room = room
         self.render_content = True
         self.is_break = False
-        self.is_a_talk = False
+        self.render_abstract = True
 
 
 class ContinuedSession(AbstractSession):
@@ -29,6 +41,7 @@ class ContinuedSession(AbstractSession):
         super(ContinuedSession, self).__init__(start, end, room)
         self.render_content = False
         self.is_a_talk = True
+        self.render_abstract = False
 
 
 class Break(AbstractSession):
@@ -36,6 +49,7 @@ class Break(AbstractSession):
         super(Break, self).__init__(start, end, room)
         self.title = name
         self.is_break = True
+        self.render_abstract = False
 
     def import_config(breaks, days, locale):
         result = []
@@ -59,10 +73,12 @@ class Break(AbstractSession):
 
 class ExtraSession(AbstractSession):
     """Session which is not managed by Pretalx but provided via a configuration file. This is intended for conference photos, social events and parallel conferences/tracks."""
-    def __init__(self, start, end, room, title):
+    def __init__(self, start, end, room, title, url):
         super(ExtraSession, self).__init__(start, end, room)
         self.title = title
+        self.url = url
         self.render_content = True
+        self.render_abstract = False
 
     def build(locale, rooms, **kwargs):
         """Factory function for ExtraSession class.
@@ -76,7 +92,7 @@ class ExtraSession(AbstractSession):
         """
         start = transform_pretalx_date(kwargs["start"])
         end = transform_pretalx_date(kwargs["end"])
-        return ExtraSession(start, end, rooms[kwargs["room_id"]], kwargs["title"][locale])
+        return ExtraSession(start, end, rooms[kwargs["room_id"]], kwargs["title"][locale], kwargs.get("url", ""))
 
     def import_config(sessions, locale, rooms):
         return [ ExtraSession.build(locale, rooms, **s) for s in sessions ]
@@ -86,23 +102,53 @@ class ExtraSession(AbstractSession):
 
 
 class Session(AbstractSession):
-    def __init__(self, room, talk):
+    def __init__(self, room, talk, locale):
         super(Session, self).__init__(transform_pretalx_date(talk["start"]), transform_pretalx_date(talk["end"]), room)
         self.room = room
         self.talk = talk
+        self.title = talk["title"]
+        self.short_abstract = talk.get("abstract")
+        self.long_abstract = talk.get("description")
+        self.speakers = [ Speaker(s["name"], s["code"]) for s in talk.get("speakers", []) ]
+        self.duration = talk.get("duration")
+        self.questions = Question.build_from_list(talk.get("answers", []), locale)
         if "url" in talk and "code" not in talk:
             self.code = url_to_code(talk["url"])
         else:
             self.code = talk.get("code", "")
-        self.speaker_names = ", ".join([ s["name"] for s in talk["speakers"] ])
         self.row_count = 1
         self.col_count = 1
         self.render_content = True
         self.is_a_talk = True
-        self.recording = not talk.get("do_not_record", False)
+        self.recording = not talk.get("do_not_record", True)
 
     def set_row_count(count):
         self.row_count = count
+
+    def add_speaker_details(self, speakers_dict, locale):
+        """
+        Args
+        ----
+        speakers_dict : dict
+            dictionary of all speakers mapping code to Speaker
+        """
+        for s in self.speakers:
+            s.update(speakers_dict[s.code], locale)
+
+    def set_speaker_names(self, affiliation_question_id=None):
+        parts = []
+        parts_with_affiliations = []
+        for s in self.speakers:
+            parts.append(s.name)
+            if affiliation_question_id and s.questions.get(affiliation_question_id):
+                if s.questions[affiliation_question_id].response:
+                    parts_with_affiliations.append("{} ({})".format(s.name, s.questions[affiliation_question_id].response))
+                else:
+                    parts_with_affiliations.append(s.name)
+            else:
+                parts_with_affiliations.append(s.name)
+        self.speaker_names_with_affiliations = [escape_yaml_value_quote(p) for p in parts_with_affiliations]
+        self.speaker_names = ", ".join(parts)
 
     def __repr__(self):
         return "Session {} {} {} {} {}".format(self.start, self.end, self.room, self.talk, self.row_count)
