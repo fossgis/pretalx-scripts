@@ -53,7 +53,7 @@ parser.add_argument("abstract_template", type=str, help="template file for abstr
 parser.add_argument("abstracts_out_dir", type=str, help="output directory for abstracts")
 args = parser.parse_args()
 
-config = {"no_video_rooms": [], "timezone": "UTC", "break_min_threshold": 10, "max_length": 240, "extra_sessions": []}
+config = {"no_video_rooms": [], "timezone": "UTC", "break_min_threshold": 10, "max_length": 240, "extra_sessions": [], "no_abstract_for": []}
 if args.config:
     config.update(json.load(args.config))
 
@@ -240,7 +240,7 @@ env_table.filters["equal_day"] = equal_day
 env_table.filters["type"] = objtype 
 schedule_tmpl_file = os.path.basename(os.path.abspath(args.template))
 template_table = env_table.get_template(schedule_tmpl_file)
-result = template_table.render(days=days, slots=sessions_starts, right_time=False, timezone=event_timezone)
+result = template_table.render(days=days, slots=sessions_starts, right_time=False, timezone=event_timezone, no_abstract_for=config["no_abstract_for"])
 args.output_file.write(result)
 
 abstract_template_searchpath = os.path.dirname(os.path.abspath(args.abstract_template))
@@ -255,7 +255,7 @@ abstr_tmpl_file = os.path.basename(os.path.abspath(args.abstract_template))
 template_abstr = env_abstr.get_template(abstr_tmpl_file)
 if not args.no_abstracts:
     for t in sessions:
-        if not t.is_break and t.render_abstract:
+        if not t.is_break and t.render_abstract and t.code not in config["no_abstract_for"]:
             sys.stderr.write("rendering abstract of {} {}\n".format(t.code, t.title))
             outfile_path = os.path.join(args.abstracts_out_dir, t.code) + ".html"
             with open(outfile_path, "w") as abstr_file:
