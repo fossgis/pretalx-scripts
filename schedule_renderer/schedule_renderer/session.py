@@ -45,9 +45,10 @@ class ContinuedSession(AbstractSession):
 
 
 class Break(AbstractSession):
-    def __init__(self, start, end, room, name):
+    def __init__(self, start, end, room, name, url):
         super(Break, self).__init__(start, end, room)
         self.title = name
+        self.url = url
         self.is_break = True
         self.render_abstract = False
 
@@ -57,6 +58,7 @@ class Break(AbstractSession):
         for b in breaks:
             start = transform_pretalx_date(b["start"]).astimezone(utc)
             end = transform_pretalx_date(b["end"]).astimezone(utc)
+            url = b.get("url")
             rooms = []
             for d in days:
                 if d.is_same_day(start):
@@ -64,7 +66,7 @@ class Break(AbstractSession):
                     break
             name = b["name"][locale]
             for r in rooms:
-                result.append(Break(start, end, r, name))
+                result.append(Break(start, end, r, name, url))
         return result
 
     def __repr__(self):
