@@ -53,7 +53,7 @@ parser.add_argument("abstract_template", type=str, help="template file for abstr
 parser.add_argument("abstracts_out_dir", type=str, help="output directory for abstracts")
 args = parser.parse_args()
 
-config = {"no_video_rooms": [], "timezone": "UTC", "break_min_threshold": 10, "max_length": 240, "extra_sessions": [], "no_abstract_for": []}
+config = {"no_video_rooms": [], "timezone": "UTC", "break_min_threshold": 10, "max_length": 240, "extra_sessions": [], "no_abstract_for": [], "attachment_subdirectory": "/attachments", "pretalx_url_prefix": "https://pretalx.com/"}
 if args.config:
     config.update(json.load(args.config))
 
@@ -120,7 +120,7 @@ days.sort(key=lambda d: d.date)
 # Go through talks and look for sessions
 sessions = []
 for t in talks:
-    sessions.append(Session(rooms[t["room"]], t, args.locale))
+    sessions.append(Session(rooms[t["room"]], t, args.locale, config["pretalx_url_prefix"]))
 
 # load speaker details
 if args.speakers:
@@ -229,6 +229,10 @@ for s in sessions_starts:
         if d.is_same_day(s.start):
             s.fill_gaps(d)
 
+# build URLs for attachments of sessions
+for s in sessions:
+    for r in s.resources:
+        r.set_href(config["attachment_subdirectory"])
 
 template_searchpath = os.path.dirname(os.path.abspath(args.template))
 env_table = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=template_searchpath),

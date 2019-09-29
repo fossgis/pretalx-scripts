@@ -1,6 +1,7 @@
 import datetime
 from .question import Question
 from .speaker import Speaker
+from .resource import Resource
 
 PRETALX_DATE_FMT = "%Y-%m-%dT%H:%M:%S%z"
 
@@ -33,6 +34,8 @@ class AbstractSession:
         self.render_content = True
         self.is_break = False
         self.render_abstract = True
+        self.resources = []
+        self.code = ""
 
 
 class ContinuedSession(AbstractSession):
@@ -104,7 +107,7 @@ class ExtraSession(AbstractSession):
 
 
 class Session(AbstractSession):
-    def __init__(self, room, talk, locale):
+    def __init__(self, room, talk, locale, url_prefix):
         super(Session, self).__init__(transform_pretalx_date(talk["start"]), transform_pretalx_date(talk["end"]), room)
         self.room = room
         self.talk = talk
@@ -123,6 +126,7 @@ class Session(AbstractSession):
         self.render_content = True
         self.is_a_talk = True
         self.recording = not talk.get("do_not_record", True)
+        self.resources = Resource.from_list(talk.get("resources", []), self.code, url_prefix)
 
     def set_row_count(count):
         self.row_count = count
