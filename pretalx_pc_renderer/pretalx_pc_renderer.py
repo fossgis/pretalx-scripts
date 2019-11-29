@@ -27,6 +27,9 @@ def escape_tex(value, linebreaks=False):
 
 
 def update_submission(submission, review):
+    if not review.get("score", None):
+        # reviews do not necessarily have a score, for example by reviewers with a conflict of interest
+        return submission
     if submission["review_count"] == 0:
         submission["average_score"] = float(review["score"])
     else:
