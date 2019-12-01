@@ -4,6 +4,7 @@ import argparse
 import datetime
 import jinja2
 import json
+import locale
 import logging
 import markdown
 import os
@@ -36,15 +37,30 @@ def equal_day(d1, d2):
     return d1.year == d2.year and d1.month == d2.month and d1.day == d2.day
 
 
+def get_speakers_from_submissions(submissions_file, talks):
+    submissions = json.load(submissions_file)["results"]
+    submissions = [ s for s in submissions if s.get("state") in ["accepted", "confirmed"] ]
+    for s in submissions:
+        for sp in s["speakers"]:
+            for i in range(0, len(talks)):
+                for j in range(0, len(talks[i]["speakers"])):
+                    if talks[i]["speakers"][j]["name"] == sp["name"]:
+                        talks[i]["speakers"][j] = sp
+    return talks
+
+
 logging.basicConfig(level=logging.INFO, format='%(message)s', datefmt=None)
 
 parser = argparse.ArgumentParser(description="Generate a schedule from a Pretalx JSON export")
 parser.add_argument("-c", "--config", type=argparse.FileType("r"), help="configuration file")
 parser.add_argument("--confirmed-only", action="store_true", help="confirmed talks only")
 parser.add_argument("--editor-api", action="store_true", help="talks JSON file is from the internal API used by the schedule editor, not from the public API")
-parser.add_argument("-l", "--locale", type=str, help="locale")
+parser.add_argument("-l", "--locale", type=str, help="locale, e.g. de_DE", default="en_EN")
 parser.add_argument("--no-abstracts", action="store_true", help="don't render abstract detail pages")
 parser.add_argument("-s", "--speakers", type=argparse.FileType("r"), help="JSON file from /speakers API endpoint")
+parser.add_argument("--submissions", type=argparse.FileType("r"), help="JSON file from /submissions API endpoint. Required if --editor-api is used.")
+parser.add_argument("--time-from", type=str, help="Render events only after this, format: %Y-%m-%d %H:%M")
+parser.add_argument("--time-to", type=str, help="Render events only until this time, format: %Y-%m-%d %H:%M")
 parser.add_argument("rooms_file", type=argparse.FileType("r"), help="rooms export of /rooms API enpoint")
 parser.add_argument("input_file", type=argparse.FileType("r"), help="input file (talks JSON file or /talks API endpoint)")
 parser.add_argument("template", type=str, help="template file")
@@ -52,6 +68,18 @@ parser.add_argument("output_file", type=argparse.FileType("w"), help="HTML outpu
 parser.add_argument("abstract_template", type=str, help="template file for abstracts")
 parser.add_argument("abstracts_out_dir", type=str, help="output directory for abstracts")
 args = parser.parse_args()
+
+if args.editor_api and not args.submissions:
+    logging.error("--editor-api needs to be called with --submissions")
+    exit(1)
+
+pretalx_locale = args.locale.split("_")
+if len(pretalx_locale) < 1 or len(pretalx_locale) > 2:
+    # We accept a single "en" as well.
+    logging.error("locale is invalid, please use the following format: de_DE (got: {})".format(args.locale))
+    exit(1)
+pretalx_locale = pretalx_locale[0]
+locale.setlocale(locale.LC_TIME, args.locale)
 
 config = {"no_video_rooms": [], "timezone": "UTC", "break_min_threshold": 10, "max_length": 240, "extra_sessions": [], "no_abstract_for": [], "attachment_subdirectory": "/attachments", "pretalx_url_prefix": "https://pretalx.com/"}
 if args.config:
@@ -63,6 +91,8 @@ talks = json.load(args.input_file)["results"]
 # Drop talks without day and room.
 if args.editor_api:
     talks = [ t for t in talks if t.get("room") and t.get("start") ]
+    # load submissions and apply speaker codes
+    talks = get_speakers_from_submissions(args.submissions, talks)
 else:
     talks = [ t for t in talks if t.get("slot") and t.get("slot").get("start") and t.get("slot").get("room") ]
 
@@ -75,9 +105,9 @@ rooms_raw = json.load(args.rooms_file)["results"]
 rooms = {}
 rooms_by_name = {}
 for r in rooms_raw:
-    video = r["name"][args.locale] in config["video_rooms"]
-    rooms[r["id"]] = Room.build(r, args.locale, video)
-    rooms_by_name[r["name"][args.locale]] = rooms[r["id"]]
+    video = r["name"][pretalx_locale] in config["video_rooms"]
+    rooms[r["id"]] = Room.build(r, pretalx_locale, video)
+    rooms_by_name[r["name"][pretalx_locale]] = rooms[r["id"]]
 
 days = []
 
@@ -88,7 +118,16 @@ if not args.editor_api:
         if not args.editor_api:
             t["start"] = t["slot"]["start"]
             t["end"] = t["slot"]["end"]
-            t["room"] = rooms_by_name[t["slot"]["room"][args.locale]].id
+            t["room"] = rooms_by_name[t["slot"]["room"][pretalx_locale]].id
+
+# Remove talks not matching the time filters
+TIME_FORMAT = "%Y-%m-%d %H:%M"
+if args.time_from:
+    time_from = event_timezone.localize(datetime.datetime.strptime(args.time_from, TIME_FORMAT))
+    talks = [ t for t in talks if read_datetime(t["end"]) >= time_from ]
+if args.time_to:
+    time_to = event_timezone.localize(datetime.datetime.strptime(args.time_to, TIME_FORMAT))
+    talks = [ t for t in talks if read_datetime(t["start"]) <= time_to ]
 
 # Go through talks and look which days and start times we have
 for t in talks:
@@ -103,7 +142,7 @@ for t in talks:
         days.append(Day(talk_day, rooms[t["room"]]))
 
 # Do the same for extra sessions (from config file)
-extra_sessions = ExtraSession.import_config(config["extra_sessions"], args.locale, rooms)
+extra_sessions = ExtraSession.import_config(config["extra_sessions"], pretalx_locale, rooms)
 for es in extra_sessions:
     talk_day = es.start
     day_found = False
@@ -120,20 +159,20 @@ days.sort(key=lambda d: d.date)
 # Go through talks and look for sessions
 sessions = []
 for t in talks:
-    sessions.append(Session(rooms[t["room"]], t, args.locale, config["pretalx_url_prefix"]))
+    sessions.append(Session(rooms[t["room"]], t, pretalx_locale, config["pretalx_url_prefix"]))
 
 # load speaker details
 if args.speakers:
     speakers_raw = json.load(args.speakers)["results"]
     speakers = { s["code"]:s for s in speakers_raw }
     for s in sessions:
-        s.add_speaker_details(speakers, args.locale)
+        s.add_speaker_details(speakers, pretalx_locale)
 
 # add affilations to speaker names for output
 for s in sessions:
     s.set_speaker_names(config.get("affiliation_question_id"))
 
-sessions += Break.import_config(config["breaks"], days, args.locale)
+sessions += Break.import_config(config["breaks"], days, pretalx_locale)
 sessions += extra_sessions
 
 # sort slots

@@ -16,3 +16,6 @@ class Day:
 
     def weekday(d):
         return d.date.strftime("%A")
+
+    def strftime(self, fmt):
+        return self.date.strftime(fmt)
