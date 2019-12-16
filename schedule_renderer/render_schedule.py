@@ -14,7 +14,7 @@ import sys
 from schedule_renderer.day import Day
 from schedule_renderer.room import Room
 from schedule_renderer.slot import Slot
-from schedule_renderer.session import Session, ContinuedSession, Break, ExtraSession, escape_yaml_value_quote
+from schedule_renderer.session import Session, MetaSession, ContinuedSession, Break, ExtraSession, escape_yaml_value_quote, transform_pretalx_date
 
 PRETALX_DATE_FMT = "%Y-%m-%dT%H:%M:%S%z"
 OUTPUT_TIME_FMT = "%H:%M"
@@ -22,15 +22,6 @@ OUTPUT_TIME_FMT = "%H:%M"
 
 def objtype(o):
     return type(o)
-
-
-def transform_pretalx_date(d):
-    """Remove last colon."""
-    return d[:22] + d[-2:]
-
-
-def read_datetime(d):
-    return datetime.datetime.strptime(transform_pretalx_date(d), PRETALX_DATE_FMT)
 
 
 def equal_day(d1, d2):
@@ -81,7 +72,7 @@ if len(pretalx_locale) < 1 or len(pretalx_locale) > 2:
 pretalx_locale = pretalx_locale[0]
 locale.setlocale(locale.LC_TIME, args.locale)
 
-config = {"no_video_rooms": [], "timezone": "UTC", "break_min_threshold": 10, "max_length": 240, "extra_sessions": [], "no_abstract_for": [], "attachment_subdirectory": "/attachments", "pretalx_url_prefix": "https://pretalx.com/"}
+config = {"no_video_rooms": [], "timezone": "UTC", "break_min_threshold": 10, "max_length": 240, "extra_sessions": [], "no_abstract_for": [], "attachment_subdirectory": "/attachments", "pretalx_url_prefix": "https://pretalx.com/", "meta_sessions": []}
 if args.config:
     config.update(json.load(args.config))
 
@@ -124,14 +115,14 @@ if not args.editor_api:
 TIME_FORMAT = "%Y-%m-%d %H:%M"
 if args.time_from:
     time_from = event_timezone.localize(datetime.datetime.strptime(args.time_from, TIME_FORMAT))
-    talks = [ t for t in talks if read_datetime(t["end"]) >= time_from ]
+    talks = [ t for t in talks if transform_pretalx_date(t["end"]) >= time_from ]
 if args.time_to:
     time_to = event_timezone.localize(datetime.datetime.strptime(args.time_to, TIME_FORMAT))
-    talks = [ t for t in talks if read_datetime(t["start"]) <= time_to ]
+    talks = [ t for t in talks if transform_pretalx_date(t["start"]) <= time_to ]
 
 # Go through talks and look which days and rooms we have
 for t in talks:
-    talk_day = read_datetime(t["start"])
+    talk_day = transform_pretalx_date(t["start"])
     day_found = False
     for d in days:
         if d.is_same_day(talk_day):
@@ -157,10 +148,21 @@ for es in extra_sessions:
 # Sort days of each room
 days.sort(key=lambda d: d.date)
 
+# Load metasessions
+metasessions = MetaSession.import_config(config["meta_sessions"], pretalx_locale, rooms)
+
 # Go through talks and look for sessions
 sessions = []
 for t in talks:
-    sessions.append(Session(rooms[t["room"]], t, pretalx_locale, config["pretalx_url_prefix"]))
+    # Check if this is a session which belongs to a metasession
+    is_child_session = False
+    for m in metasessions:
+        if t["room"] == m.room.id and transform_pretalx_date(t["start"]) >= m.start and transform_pretalx_date(t["end"]) <= m.end:
+            m.add_child_session(Session(rooms[t["room"]], t, pretalx_locale, config["pretalx_url_prefix"]))
+            is_child_session = True
+            break
+    if not is_child_session:
+        sessions.append(Session(rooms[t["room"]], t, pretalx_locale, config["pretalx_url_prefix"]))
 
 # load speaker details
 if args.speakers:
@@ -175,6 +177,7 @@ for s in sessions:
 
 sessions += Break.import_config(config["breaks"], days, pretalx_locale)
 sessions += extra_sessions
+sessions += metasessions
 
 # sort slots
 sessions.sort(key=lambda s : (s.start, s.end))

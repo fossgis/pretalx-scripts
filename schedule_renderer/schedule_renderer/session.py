@@ -37,6 +37,9 @@ class AbstractSession:
         self.resources = []
         self.code = ""
 
+    def mergeable(self):
+        return False
+
 
 class ContinuedSession(AbstractSession):
     """second/third part of a session spanning over more than one slot"""
@@ -104,6 +107,42 @@ class ExtraSession(AbstractSession):
 
     def __repr__(self):
         return "ExtraSession {} {} {} {}".format(self.start, self.end, self.title, self.room)
+
+
+class MetaSession(AbstractSession):
+    """Session hosting multiple children sessions which is not managed by Pretalx but provided via a configuration file. This is intended for lightning talk sessions and similar short talks which would impair the overview table."""
+    def __init__(self, start, end, room, title, code):
+        super(MetaSession, self).__init__(start, end, room)
+        self.talk = {"title": title}
+        self.recording = True
+        self.code = code
+        self.children = []
+        self.is_a_talk = True
+
+    def add_child_session(self, child):
+        self.children.append(child)
+        self.recording = self.recording and self.recording
+
+    def build(locale, rooms, **kwargs):
+        """Factory function for ExtraSession class.
+
+        Parameters
+        ----------
+        locale : string
+            locale, e.g. 'en'
+        rooms : dict of int,Room
+            rooms
+        """
+        start = transform_pretalx_date(kwargs["start"])
+        end = transform_pretalx_date(kwargs["end"])
+        return MetaSession(start, end, rooms[kwargs["room_id"]], kwargs["title"][locale], kwargs.get("code", ""))
+
+    def import_config(sessions, locale, rooms):
+        return [ MetaSession.build(locale, rooms, **s) for s in sessions ]
+
+    def __repr__(self):
+        return "MetaSession {} {} {} {}".format(self.start, self.end, self.title, self.room)
+
 
 
 class Session(AbstractSession):
