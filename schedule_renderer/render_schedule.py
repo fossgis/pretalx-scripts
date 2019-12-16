@@ -129,7 +129,7 @@ if args.time_to:
     time_to = event_timezone.localize(datetime.datetime.strptime(args.time_to, TIME_FORMAT))
     talks = [ t for t in talks if read_datetime(t["start"]) <= time_to ]
 
-# Go through talks and look which days and start times we have
+# Go through talks and look which days and rooms we have
 for t in talks:
     talk_day = read_datetime(t["start"])
     day_found = False
@@ -154,6 +154,7 @@ for es in extra_sessions:
     if not day_found:
         days.append(Day(talk_day, es.room))
 
+# Sort days of each room
 days.sort(key=lambda d: d.date)
 
 # Go through talks and look for sessions
