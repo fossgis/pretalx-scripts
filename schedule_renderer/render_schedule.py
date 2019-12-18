@@ -14,7 +14,7 @@ import sys
 from schedule_renderer.day import Day
 from schedule_renderer.room import Room
 from schedule_renderer.slot import Slot
-from schedule_renderer.session import Session, MetaSession, ContinuedSession, Break, ExtraSession, escape_yaml_value_quote, transform_pretalx_date
+from schedule_renderer.session import SessionType, Session, MetaSession, ContinuedSession, Break, ExtraSession, escape_yaml_value_quote, transform_pretalx_date
 
 PRETALX_DATE_FMT = "%Y-%m-%dT%H:%M:%S%z"
 OUTPUT_TIME_FMT = "%H:%M"
@@ -43,10 +43,12 @@ def get_speakers_from_submissions(submissions_file, talks):
 logging.basicConfig(level=logging.INFO, format='%(message)s', datefmt=None)
 
 parser = argparse.ArgumentParser(description="Generate a schedule from a Pretalx JSON export")
+parser.add_argument("--abstract-filename-suffix", type=str, help="filename suffix for rendered abstracts including the leading dot, defaults to '.html'", default=".html")
 parser.add_argument("-c", "--config", type=argparse.FileType("r"), help="configuration file")
 parser.add_argument("--confirmed-only", action="store_true", help="confirmed talks only")
 parser.add_argument("--editor-api", action="store_true", help="talks JSON file is from the internal API used by the schedule editor, not from the public API")
 parser.add_argument("-l", "--locale", type=str, help="locale, e.g. de_DE", default="en_EN")
+parser.add_argument("-m", "--metasession-template", type=str, help="path to template for metasessions")
 parser.add_argument("--no-abstracts", action="store_true", help="don't render abstract detail pages")
 parser.add_argument("-s", "--speakers", type=argparse.FileType("r"), help="JSON file from /speakers API endpoint")
 parser.add_argument("--submissions", type=argparse.FileType("r"), help="JSON file from /submissions API endpoint. Required if --editor-api is used.")
@@ -277,6 +279,7 @@ for s in sessions:
     for r in s.resources:
         r.set_href(config["attachment_subdirectory"])
 
+# Render table
 template_searchpath = os.path.dirname(os.path.abspath(args.template))
 env_table = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=template_searchpath),
                          trim_blocks=True,
@@ -290,6 +293,25 @@ template_table = env_table.get_template(schedule_tmpl_file)
 result = template_table.render(days=days, slots=sessions_starts, right_time=False, timezone=event_timezone, no_abstract_for=config["no_abstract_for"])
 args.output_file.write(result)
 
+# Render metasessions
+if args.metasession_template and len(metasessions) > 0:
+    metasession_template_searchpath = os.path.dirname(os.path.abspath(args.metasession_template))
+    env_meta = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=abstract_template_searchpath),
+                                   trim_blocks=True,
+                                   autoescape=False)
+    env_meta.filters["weekday"] = Day.weekday
+    env_meta.filters["equal_day"] = equal_day
+    env_meta.filters["e"] = escape_yaml_value_quote
+    env_meta.filters["markdown_to_html"] = markdown.markdown
+    meta_tmpl_file = os.path.basename(os.path.abspath(args.abstract_template))
+    template_meta = env_abstr.get_template(meta_tmpl_file)
+    for m in metasessions:
+        sys.stderr.write("rendering description of metasession {}\n".format(m.talk.title))
+        outfile_path = os.path.join(args.abstracts_out_dir, t.code) + args.abstract_filename_suffix
+        with open(outfile_path, "w") as abstr_file:
+            abstr_file.write(template_meta.render(session=m, video_rooms=config["video_rooms"]))
+
+# Render abstracts
 abstract_template_searchpath = os.path.dirname(os.path.abspath(args.abstract_template))
 # no escaping because it is handled by the markdown module and Jekyll
 env_abstr = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=abstract_template_searchpath),
@@ -302,8 +324,8 @@ abstr_tmpl_file = os.path.basename(os.path.abspath(args.abstract_template))
 template_abstr = env_abstr.get_template(abstr_tmpl_file)
 if not args.no_abstracts:
     for t in sessions:
-        if not t.is_break and t.render_abstract and t.code not in config["no_abstract_for"]:
+        if not t.is_break and t.render_abstract and t.code not in config["no_abstract_for"] and t.type() == SessionType.NORMAL:
             sys.stderr.write("rendering abstract of {} {}\n".format(t.code, t.title))
-            outfile_path = os.path.join(args.abstracts_out_dir, t.code) + ".html"
+            outfile_path = os.path.join(args.abstracts_out_dir, t.code) + args.abstract_filename_suffix
             with open(outfile_path, "w") as abstr_file:
                 abstr_file.write(template_abstr.render(session=t, video_rooms=config["video_rooms"], short_description_html=markdown.markdown(t.short_abstract), description_html=markdown.markdown(t.long_abstract)))

@@ -1,4 +1,5 @@
 import datetime
+from enum import Enum
 from .question import Question
 from .speaker import Speaker
 from .resource import Resource
@@ -25,8 +26,17 @@ def escape_yaml_value_quote(text):
         return ""
     return text.replace("\"", "\\\"")
 
+class SessionType(Enum):
+    NONE = 0
+    CONTINUED = 1
+    BREAK = 2
+    EXTRA = 3
+    META = 4
+    NORMAL = 5
+
 
 class AbstractSession:
+
     def __init__(self, start, end, room):
         self.start = start
         self.end = end
@@ -36,6 +46,9 @@ class AbstractSession:
         self.render_abstract = True
         self.resources = []
         self.code = ""
+
+    def type(self):
+        return SessionType.NONE
 
     def mergeable(self):
         return False
@@ -49,6 +62,9 @@ class ContinuedSession(AbstractSession):
         self.is_a_talk = True
         self.render_abstract = False
 
+    def type(self):
+        return SessionType.CONTINUED
+
 
 class Break(AbstractSession):
     def __init__(self, start, end, room, name, url):
@@ -57,6 +73,9 @@ class Break(AbstractSession):
         self.url = url
         self.is_break = True
         self.render_abstract = False
+
+    def type(self):
+        return SessionType.BREAK
 
     def import_config(breaks, days, locale):
         result = []
@@ -88,6 +107,9 @@ class ExtraSession(AbstractSession):
         self.render_content = True
         self.render_abstract = False
 
+    def type(self):
+        return SessionType.EXTRA
+
     def build(locale, rooms, **kwargs):
         """Factory function for ExtraSession class.
 
@@ -118,6 +140,9 @@ class MetaSession(AbstractSession):
         self.code = code
         self.children = []
         self.is_a_talk = True
+
+    def type(self):
+        return SessionType.META
 
     def add_child_session(self, child):
         self.children.append(child)
@@ -166,6 +191,9 @@ class Session(AbstractSession):
         self.is_a_talk = True
         self.recording = not talk.get("do_not_record", True)
         self.resources = Resource.from_list(talk.get("resources", []), self.code, url_prefix)
+
+    def type(self):
+        return SessionType.NORMAL
 
     def set_row_count(count):
         self.row_count = count
