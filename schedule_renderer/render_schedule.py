@@ -14,7 +14,7 @@ import sys
 from schedule_renderer.day import Day
 from schedule_renderer.room import Room
 from schedule_renderer.slot import Slot
-from schedule_renderer.session import SessionType, Session, MetaSession, ContinuedSession, Break, ExtraSession, escape_yaml_value_quote, transform_pretalx_date
+from schedule_renderer.session import SessionType, Session, MetaSession, ContinuedSession, Break, ExtraSession, escape_yaml_value_quote, transform_pretalx_date, url_to_code
 
 PRETALX_DATE_FMT = "%Y-%m-%dT%H:%M:%S%z"
 OUTPUT_TIME_FMT = "%H:%M"
@@ -74,7 +74,7 @@ if len(pretalx_locale) < 1 or len(pretalx_locale) > 2:
 pretalx_locale = pretalx_locale[0]
 locale.setlocale(locale.LC_TIME, args.locale)
 
-config = {"no_video_rooms": [], "timezone": "UTC", "break_min_threshold": 10, "max_length": 240, "extra_sessions": [], "no_abstract_for": [], "attachment_subdirectory": "/attachments", "pretalx_url_prefix": "https://pretalx.com/", "meta_sessions": []}
+config = {"no_video_rooms": [], "timezone": "UTC", "break_min_threshold": 10, "max_length": 240, "extra_sessions": [], "no_abstract_for": [], "attachment_subdirectory": "/attachments", "pretalx_url_prefix": "https://pretalx.com/", "meta_sessions": [], "ignore_sessions": []}
 if args.config:
     config.update(json.load(args.config))
 
@@ -84,10 +84,13 @@ talks = json.load(args.input_file)["results"]
 # Drop talks without day and room.
 if args.editor_api:
     talks = [ t for t in talks if t.get("room") and t.get("start") ]
+    # Drop talks which should be ignored
+    talks = [ t for t in talks if url_to_code(t.get("url", "")) not in config['ignore_sessions'] ]
     # load submissions and apply speaker codes
     talks = get_speakers_from_submissions(args.submissions, talks)
 else:
     talks = [ t for t in talks if t.get("slot") and t.get("slot").get("start") and t.get("slot").get("room") ]
+    talks = [ t for t in talks if t.get("code") not in config['ignore_sessions'] ]
 
 if args.confirmed_only:
     talks = [ t for t in talks if t["state"] == "confirmed" ]
