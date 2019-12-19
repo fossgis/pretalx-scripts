@@ -116,14 +116,19 @@ if not args.editor_api:
             t["end"] = t["slot"]["end"]
             t["room"] = rooms_by_name[t["slot"]["room"][pretalx_locale]].id
 
+# Load metasessions
+metasessions = MetaSession.import_config(config["meta_sessions"], pretalx_locale, rooms)
+
 # Remove talks not matching the time filters
 TIME_FORMAT = "%Y-%m-%d %H:%M"
 if args.time_from:
     time_from = event_timezone.localize(datetime.datetime.strptime(args.time_from, TIME_FORMAT))
     talks = [ t for t in talks if transform_pretalx_date(t["end"]) >= time_from ]
+    metasessions = [ t for t in metasessions if t.end >= time_from ]
 if args.time_to:
     time_to = event_timezone.localize(datetime.datetime.strptime(args.time_to, TIME_FORMAT))
     talks = [ t for t in talks if transform_pretalx_date(t["start"]) <= time_to ]
+    metasessions = [ t for t in metasessions if t.start <= time_to ]
 
 # Go through talks and look which days and rooms we have
 for t in talks:
@@ -153,9 +158,6 @@ for es in extra_sessions:
 # Sort days of each room
 days.sort(key=lambda d: d.date)
 
-# Load metasessions
-metasessions = MetaSession.import_config(config["meta_sessions"], pretalx_locale, rooms)
-
 # Go through talks and look for sessions
 sessions = []
 for t in talks:
@@ -169,6 +171,10 @@ for t in talks:
     if not is_child_session:
         sessions.append(Session(rooms[t["room"]], t, pretalx_locale, config["pretalx_url_prefix"]))
 
+# sort children of metasessions by start time
+for m in metasessions:
+    m.sort_children()
+
 # load speaker details
 if args.speakers:
     speakers_raw = json.load(args.speakers)["results"]
@@ -179,6 +185,10 @@ if args.speakers:
 # add affilations to speaker names for output
 for s in sessions:
     s.set_speaker_names(config.get("affiliation_question_id"))
+# the same for children of metasessions
+for m in metasessions:
+    for s in m.children:
+        s.set_speaker_names(config.get("affiliation_question_id"))
 
 sessions += Break.import_config(config["breaks"], days, pretalx_locale)
 sessions += extra_sessions
@@ -299,18 +309,18 @@ args.output_file.write(result)
 # Render metasessions
 if args.metasession_template and len(metasessions) > 0:
     metasession_template_searchpath = os.path.dirname(os.path.abspath(args.metasession_template))
-    env_meta = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=abstract_template_searchpath),
+    env_meta = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=metasession_template_searchpath),
                                    trim_blocks=True,
                                    autoescape=False)
     env_meta.filters["weekday"] = Day.weekday
     env_meta.filters["equal_day"] = equal_day
     env_meta.filters["e"] = escape_yaml_value_quote
     env_meta.filters["markdown_to_html"] = markdown.markdown
-    meta_tmpl_file = os.path.basename(os.path.abspath(args.abstract_template))
-    template_meta = env_abstr.get_template(meta_tmpl_file)
+    meta_tmpl_file = os.path.basename(os.path.abspath(args.metasession_template))
+    template_meta = env_meta.get_template(meta_tmpl_file)
     for m in metasessions:
-        sys.stderr.write("rendering description of metasession {}\n".format(m.talk.title))
-        outfile_path = os.path.join(args.abstracts_out_dir, t.code) + args.abstract_filename_suffix
+        sys.stderr.write("rendering description of metasession {}\n".format(m.title))
+        outfile_path = os.path.join(args.abstracts_out_dir, m.code) + args.abstract_filename_suffix
         with open(outfile_path, "w") as abstr_file:
             abstr_file.write(template_meta.render(session=m, video_rooms=config["video_rooms"]))
 
@@ -326,7 +336,10 @@ env_abstr.filters["e"] = escape_yaml_value_quote
 abstr_tmpl_file = os.path.basename(os.path.abspath(args.abstract_template))
 template_abstr = env_abstr.get_template(abstr_tmpl_file)
 if not args.no_abstracts:
-    for t in sessions:
+    metasession_children = []
+    for m in metasessions:
+        metasession_children += [ c for c in m.children ]
+    for t in sessions + metasession_children:
         if not t.is_break and t.render_abstract and t.code not in config["no_abstract_for"] and t.type() == SessionType.NORMAL:
             sys.stderr.write("rendering abstract of {} {}\n".format(t.code, t.title))
             outfile_path = os.path.join(args.abstracts_out_dir, t.code) + args.abstract_filename_suffix

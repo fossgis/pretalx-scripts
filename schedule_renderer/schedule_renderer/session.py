@@ -136,6 +136,7 @@ class MetaSession(AbstractSession):
     def __init__(self, start, end, room, title, code):
         super(MetaSession, self).__init__(start, end, room)
         self.talk = {"title": title}
+        self.title = title
         self.recording = True
         self.code = code
         self.children = []
@@ -145,8 +146,12 @@ class MetaSession(AbstractSession):
         return SessionType.META
 
     def add_child_session(self, child):
+        child.supersession_code = self.code
         self.children.append(child)
         self.recording = self.recording and self.recording
+
+    def sort_children(self):
+        self.children.sort(key=lambda c : c.talk.get("start"))
 
     def build(locale, rooms, **kwargs):
         """Factory function for ExtraSession class.
@@ -191,6 +196,7 @@ class Session(AbstractSession):
         self.is_a_talk = True
         self.recording = not talk.get("do_not_record", True)
         self.resources = Resource.from_list(talk.get("resources", []), self.code, url_prefix)
+        self.supersession_code = None
 
     def type(self):
         return SessionType.NORMAL
