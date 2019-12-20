@@ -15,10 +15,22 @@ def talk_in_range(time_range, talk_slot):
     slot_start = datetime.datetime.strptime(talk_slot["start"], OUTPUT_DATE_FORMAT)
     return slot_start >= time_range[0] and slot_start <= time_range[1]
 
+def transform_pretalx_date(d):
+    """Remove last colon."""
+    return datetime.datetime.strptime(d[:22] + d[-2:], PRETALX_DATE_FORMAT)
+
+def url_to_code(u):
+    parts = u.split("/")
+    if parts[-1] == "":
+        parts = parts[:-1]
+    return parts[-1]
+
+
 
 parser = argparse.ArgumentParser(description="Convert schedule JSON to CSV")
 parser.add_argument("-a", "--all-in-one", help="one line per speaker and talk", action="store_true")
 parser.add_argument("-A", "--all", help="include submissions without slots and rejected/cancelled submissions if not excluded by other filters", action="store_true")
+parser.add_argument("--editor-api", action="store_true", help="Talks JSON file is from Editor API, the 'start' and 'end' field are properties of the session, not of session.slots[]")
 parser.add_argument("-l", "--locale", type=str, help="locale of the event", required=True)
 parser.add_argument("--no-repeat", help="don't repeat a speaker (just write a list of speakers, one speaker per line and one line per speaker)", action="store_true")
 parser.add_argument("-q", "--question-answers", help="output answers by speakers on the questions asked in the CfP form", action="store_true")
@@ -41,6 +53,18 @@ talks = []
 with open(args.talks_file, "r") as infile:
     talks = json.load(infile)["results"]
 
+# Move start and end of slot if not using data from editor API
+if args.editor_api:
+    for i in range(0, len(talks)):
+        t = talks[i]
+        talks[i]["code"] = url_to_code(talks[i]["url"])
+        talks[i].pop("url", None)
+        talks[i]["submission_type"] = {args.locale: talks[i]["submission_type"]}
+        talks[i].pop("url", None)
+        talks[i]["slot"] = {"start":  t["start"], "end": t["end"]}
+        talks[i].pop("start", None)
+        talks[i].pop("end", None)
+
 if not args.all:
     talks = [x for x in talks if x.get("slot", None) not in [None, []]]
 
@@ -50,7 +74,7 @@ for t in talks:
         t["slot"] = {"start": None, "end": None}
         continue
     for field in ["start", "end"]:
-        m = datetime.datetime.strptime(t["slot"][field], PRETALX_DATE_FORMAT)
+        m = transform_pretalx_date(t["slot"][field][:-3])
         m = m.astimezone(CET)
         if field == "start":
             t["slot"][field] = m.strftime("%d.%m.%Y %H:%M")
@@ -164,7 +188,7 @@ with open(args.csv_file, "w") as outfile:
             if t.get("ratings_average") is not None:
                 row.append("{:.2f}".format(t.get("ratings_average")))
                 row.append(t.get("ratings_count"))
-            else:
+            elif args.rating:
                 row.append(None)
                 row.append(None)
             if args.question_answers:
