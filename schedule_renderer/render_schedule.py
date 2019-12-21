@@ -322,7 +322,7 @@ if args.metasession_template and len(metasessions) > 0:
         sys.stderr.write("rendering description of metasession {}\n".format(m.title))
         outfile_path = os.path.join(args.abstracts_out_dir, m.code) + args.abstract_filename_suffix
         with open(outfile_path, "w") as abstr_file:
-            abstr_file.write(template_meta.render(session=m, video_rooms=config["video_rooms"]))
+            abstr_file.write(template_meta.render(session=m, video_rooms=config["video_rooms"], timezone=event_timezone))
 
 # Render abstracts
 abstract_template_searchpath = os.path.dirname(os.path.abspath(args.abstract_template))
@@ -344,4 +344,4 @@ if not args.no_abstracts:
             sys.stderr.write("rendering abstract of {} {}\n".format(t.code, t.title))
             outfile_path = os.path.join(args.abstracts_out_dir, t.code) + args.abstract_filename_suffix
             with open(outfile_path, "w") as abstr_file:
-                abstr_file.write(template_abstr.render(session=t, video_rooms=config["video_rooms"], short_description_html=markdown.markdown(t.short_abstract), description_html=markdown.markdown(t.long_abstract)))
+                abstr_file.write(template_abstr.render(session=t, video_rooms=config["video_rooms"], short_description_html=markdown.markdown(t.short_abstract), description_html=markdown.markdown(t.long_abstract), timezone=event_timezone))
