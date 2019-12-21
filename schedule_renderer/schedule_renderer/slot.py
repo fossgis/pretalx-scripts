@@ -4,6 +4,9 @@ class Slot:
         self.end = end
         self.sessions = []
 
+    def __repr__(self):
+        return "Slot({}, {}, {})".format(self.start, self.end, self.sessions)
+
     def add_session(self, session):
         self.sessions.append(session)
 
@@ -34,7 +37,7 @@ class Slot:
             for s in self.sessions:
                 print(s)
                 print(",,,,,,,,,,,,,,,,,,,,,")
-            raise Exception("More sessions than rooms")
+            raise Exception("More sessions than rooms. If you have a session longer than max_length, increase max_length.")
         for rooms_idx in range(0, len(day.rooms)):
             if len(self.sessions) <= sessions_idx:
                 tmp_sessions.append(None)
