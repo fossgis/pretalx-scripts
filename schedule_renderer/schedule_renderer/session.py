@@ -46,6 +46,8 @@ class AbstractSession:
         self.render_abstract = True
         self.resources = []
         self.code = ""
+        self.speaker_names = None
+        self.is_a_talk = False
 
     def type(self):
         return SessionType.NONE
@@ -181,6 +183,7 @@ class Session(AbstractSession):
         self.room = room
         self.talk = talk
         self.title = talk["title"]
+        self.submission_type = talk["submission_type"][locale]
         self.short_abstract = talk.get("abstract")
         self.long_abstract = talk.get("description")
         self.speakers = [ Speaker(s["name"], s["code"]) for s in talk.get("speakers", []) ]

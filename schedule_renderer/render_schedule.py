@@ -110,13 +110,14 @@ for r in rooms_raw:
 days = []
 
 # Move start and end of slot if not using data from editor API
-if not args.editor_api:
-    for i in range(0, len(talks)):
-        t = talks[i]
-        if not args.editor_api:
-            t["start"] = t["slot"]["start"]
-            t["end"] = t["slot"]["end"]
-            t["room"] = rooms_by_name[t["slot"]["room"][pretalx_locale]].id
+for i in range(0, len(talks)):
+    t = talks[i]
+    if not args.editor_api:
+        t["start"] = t["slot"]["start"]
+        t["end"] = t["slot"]["end"]
+        t["room"] = rooms_by_name[t["slot"]["room"][pretalx_locale]].id
+    else:
+        t["submission_type"] = {pretalx_locale: t["submission_type"]}
 
 # Load metasessions
 metasessions = MetaSession.import_config(config["meta_sessions"], pretalx_locale, rooms)
@@ -308,6 +309,7 @@ env_table.filters["weekday"] = Day.weekday
 env_table.filters["equal_day"] = equal_day
 env_table.filters["type"] = objtype 
 env_table.filters["e_url"] = urllib.parse.quote
+env_table.undefined = jinja2.StrictUndefined
 schedule_tmpl_file = os.path.basename(os.path.abspath(args.template))
 template_table = env_table.get_template(schedule_tmpl_file)
 result = template_table.render(days=days, slots=sessions_starts, right_time=False, timezone=event_timezone, no_abstract_for=config["no_abstract_for"])
@@ -324,6 +326,7 @@ if args.metasession_template and len(metasessions) > 0:
     env_meta.filters["e_yaml"] = escape_yaml_value_quote
     env_meta.filters["e_url"] = urllib.parse.quote
     env_meta.filters["markdown_to_html"] = markdown.markdown
+    env_meta.undefined = jinja2.StrictUndefined
     meta_tmpl_file = os.path.basename(os.path.abspath(args.metasession_template))
     template_meta = env_meta.get_template(meta_tmpl_file)
     for m in metasessions:
@@ -343,6 +346,7 @@ env_abstr.filters["equal_day"] = equal_day
 env_abstr.filters["e_yaml"] = escape_yaml_value_quote
 env_abstr.filters["e_url"] = urllib.parse.quote
 env_abstr.filters["markdown_to_html"] = markdown.markdown
+env_abstr.undefined = jinja2.StrictUndefined
 abstr_tmpl_file = os.path.basename(os.path.abspath(args.abstract_template))
 template_abstr = env_abstr.get_template(abstr_tmpl_file)
 if not args.no_abstracts:
