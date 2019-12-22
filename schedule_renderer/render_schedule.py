@@ -119,15 +119,20 @@ if not args.editor_api:
 # Load metasessions
 metasessions = MetaSession.import_config(config["meta_sessions"], pretalx_locale, rooms)
 
+# Load extrasessions
+extra_sessions = ExtraSession.import_config(config["extra_sessions"], pretalx_locale, rooms)
+
 # Remove talks not matching the time filters
 TIME_FORMAT = "%Y-%m-%d %H:%M"
 if args.time_from:
     time_from = event_timezone.localize(datetime.datetime.strptime(args.time_from, TIME_FORMAT))
     talks = [ t for t in talks if transform_pretalx_date(t["end"]) >= time_from ]
+    extra_sessions = [ t for t in extra_sessions if t.end >= time_from ]
     metasessions = [ t for t in metasessions if t.end >= time_from ]
 if args.time_to:
     time_to = event_timezone.localize(datetime.datetime.strptime(args.time_to, TIME_FORMAT))
     talks = [ t for t in talks if transform_pretalx_date(t["start"]) <= time_to ]
+    extra_sessions = [ t for t in extra_sessions if t.start <= time_to ]
     metasessions = [ t for t in metasessions if t.start <= time_to ]
 
 # Go through talks and look which days and rooms we have
@@ -143,7 +148,6 @@ for t in talks:
         days.append(Day(talk_day, rooms[t["room"]]))
 
 # Do the same for extra sessions (from config file)
-extra_sessions = ExtraSession.import_config(config["extra_sessions"], pretalx_locale, rooms)
 for es in extra_sessions:
     talk_day = es.start
     day_found = False
