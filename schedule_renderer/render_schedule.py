@@ -9,6 +9,7 @@ import logging
 import markdown
 import os
 import pytz
+import urllib.parse
 import sys
 
 from schedule_renderer.day import Day
@@ -46,6 +47,7 @@ parser = argparse.ArgumentParser(description="Generate a schedule from a Pretalx
 parser.add_argument("--abstract-filename-suffix", type=str, help="filename suffix for rendered abstracts including the leading dot, defaults to '.html'", default=".html")
 parser.add_argument("-c", "--config", type=argparse.FileType("r"), help="configuration file")
 parser.add_argument("--confirmed-only", action="store_true", help="confirmed talks only")
+parser.add_argument("--disable-autoescape", action="store_true", help="Disable HTML autoescape in templates. Mind to add '|e' all over your template instead")
 parser.add_argument("--editor-api", action="store_true", help="talks JSON file is from the internal API used by the schedule editor, not from the public API")
 parser.add_argument("-l", "--locale", type=str, help="locale, e.g. de_DE", default="en_EN")
 parser.add_argument("-m", "--metasession-template", type=str, help="path to template for metasessions")
@@ -296,15 +298,16 @@ for s in sessions:
     for r in s.resources:
         r.set_href(config["attachment_subdirectory"])
 
+autoescape = jinja2.select_autoescape(default=True) if not args.disable_autoescape else False
 # Render table
 template_searchpath = os.path.dirname(os.path.abspath(args.template))
 env_table = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=template_searchpath),
                          trim_blocks=True,
-                         autoescape=True
-                         )
+                         autoescape=autoescape)
 env_table.filters["weekday"] = Day.weekday
 env_table.filters["equal_day"] = equal_day
 env_table.filters["type"] = objtype 
+env_table.filters["e_url"] = urllib.parse.quote
 schedule_tmpl_file = os.path.basename(os.path.abspath(args.template))
 template_table = env_table.get_template(schedule_tmpl_file)
 result = template_table.render(days=days, slots=sessions_starts, right_time=False, timezone=event_timezone, no_abstract_for=config["no_abstract_for"])
@@ -315,10 +318,11 @@ if args.metasession_template and len(metasessions) > 0:
     metasession_template_searchpath = os.path.dirname(os.path.abspath(args.metasession_template))
     env_meta = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=metasession_template_searchpath),
                                    trim_blocks=True,
-                                   autoescape=False)
+                                   autoescape=autoescape)
     env_meta.filters["weekday"] = Day.weekday
     env_meta.filters["equal_day"] = equal_day
-    env_meta.filters["e"] = escape_yaml_value_quote
+    env_meta.filters["e_yaml"] = escape_yaml_value_quote
+    env_meta.filters["e_url"] = urllib.parse.quote
     env_meta.filters["markdown_to_html"] = markdown.markdown
     meta_tmpl_file = os.path.basename(os.path.abspath(args.metasession_template))
     template_meta = env_meta.get_template(meta_tmpl_file)
@@ -333,10 +337,12 @@ abstract_template_searchpath = os.path.dirname(os.path.abspath(args.abstract_tem
 # no escaping because it is handled by the markdown module and Jekyll
 env_abstr = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=abstract_template_searchpath),
                                trim_blocks=True,
-                               autoescape=False)
+                               autoescape=autoescape)
 env_abstr.filters["weekday"] = Day.weekday
 env_abstr.filters["equal_day"] = equal_day
-env_abstr.filters["e"] = escape_yaml_value_quote
+env_abstr.filters["e_yaml"] = escape_yaml_value_quote
+env_abstr.filters["e_url"] = urllib.parse.quote
+env_abstr.filters["markdown_to_html"] = markdown.markdown
 abstr_tmpl_file = os.path.basename(os.path.abspath(args.abstract_template))
 template_abstr = env_abstr.get_template(abstr_tmpl_file)
 if not args.no_abstracts:
@@ -348,4 +354,4 @@ if not args.no_abstracts:
             sys.stderr.write("rendering abstract of {} {}\n".format(t.code, t.title))
             outfile_path = os.path.join(args.abstracts_out_dir, t.code) + args.abstract_filename_suffix
             with open(outfile_path, "w") as abstr_file:
-                abstr_file.write(template_abstr.render(session=t, video_rooms=config["video_rooms"], short_description_html=markdown.markdown(t.short_abstract), description_html=markdown.markdown(t.long_abstract), timezone=event_timezone))
+                abstr_file.write(template_abstr.render(session=t, video_rooms=config["video_rooms"], short_description=t.short_abstract, description=t.long_abstract, timezone=event_timezone))
