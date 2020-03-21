@@ -1,5 +1,29 @@
 import os.path
 
+
+def filename_from_url(url):
+    filename = url.split("/")[-1]
+    if not filename:
+        raise Exception("empty filename part of attachment URL {}".format(self.url))
+    return filename
+
+
+def clean_filename(url):
+    fname = filename_from_url(url)
+    escaped = ""
+    for c in fname:
+        if c in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKMNLOPQRSTUVWXYZ_-.0123456789":
+            escaped += c
+        else:
+            escaped += "_"
+    return escaped
+
+
+def get_destination_path(f, destination_directory):
+    filename = clean_filename(url)
+    return os.path.join(destination_directory, self.get_cleaned_filename())
+
+
 class Resource:
     def __init__(self, code, url_prefix, **kwargs):
         if kwargs["resource"].startswith("https://") or kwargs["resource"].startswith("http://"):
@@ -16,20 +40,9 @@ class Resource:
             result.append(Resource(code, url_prefix, **item))
         return result
 
-    def get_filename(self):
-        filename = self.url.split("/")[-1]
-        if not filename:
-            raise Exception("empty filename part of attachment URL {}".format(self.url))
-        return filename
-
     def get_cleaned_filename(self):
-        filename_escaped = ""
-        filename = self.get_filename()
-        for c in filename:
-            if c in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKMNLOPQRSTUVWXYZ_-.0123456789":
-                filename_escaped += c
-            else:
-                filename_escaped += "_"
+        filename = filename_from_url(self.url)
+        filename_escaped = clean_filename(filename)
         return "{}_{}".format(self.code, filename_escaped)
 
     def set_href(self, directory):

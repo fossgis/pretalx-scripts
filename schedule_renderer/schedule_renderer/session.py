@@ -46,14 +46,19 @@ class AbstractSession:
         self.render_abstract = True
         self.resources = []
         self.code = ""
+        self.frab_id = None
         self.speaker_names = None
         self.is_a_talk = False
+        self.video = None
 
     def type(self):
         return SessionType.NONE
 
     def mergeable(self):
         return False
+
+    def set_video(self, videos):
+        self.video = videos.get(self.code, None)
 
 
 class ContinuedSession(AbstractSession):

@@ -15,6 +15,7 @@ import sys
 from schedule_renderer.day import Day
 from schedule_renderer.room import Room
 from schedule_renderer.slot import Slot
+from schedule_renderer.video import Video
 from schedule_renderer.session import SessionType, Session, MetaSession, ContinuedSession, Break, ExtraSession, escape_yaml_value_quote, transform_pretalx_date, url_to_code
 
 PRETALX_DATE_FMT = "%Y-%m-%dT%H:%M:%S%z"
@@ -51,6 +52,7 @@ parser.add_argument("--disable-autoescape", action="store_true", help="Disable H
 parser.add_argument("--editor-api", action="store_true", help="talks JSON file is from the internal API used by the schedule editor, not from the public API")
 parser.add_argument("-l", "--locale", type=str, help="locale, e.g. de_DE", default="en_EN")
 parser.add_argument("-m", "--metasession-template", type=str, help="path to template for metasessions")
+parser.add_argument("-M", "--mediacccde", type=argparse.FileType("r"), help="Path to metadata list by media.ccc.de in JSON format, usually available at https://media.ccc.de/public/conferences/MEDIA_CCC_DE_EVENT_ID")
 parser.add_argument("--no-abstracts", action="store_true", help="don't render abstract detail pages")
 parser.add_argument("-s", "--speakers", type=argparse.FileType("r"), help="JSON file from /speakers API endpoint")
 parser.add_argument("--submissions", type=argparse.FileType("r"), help="JSON file from /submissions API endpoint. Required if --editor-api is used.")
@@ -165,6 +167,11 @@ for es in extra_sessions:
 # Sort days of each room
 days.sort(key=lambda d: d.date)
 
+# load data about videos from media.ccc.de
+videos = {}
+if args.mediacccde:
+    videos = Video.load_media_ccc_de_json(json.load(args.mediacccde))
+
 # Go through talks and look for sessions
 sessions = []
 for t in talks:
@@ -172,11 +179,15 @@ for t in talks:
     is_child_session = False
     for m in metasessions:
         if t["room"] == m.room.id and transform_pretalx_date(t["start"]) >= m.start and transform_pretalx_date(t["end"]) <= m.end:
-            m.add_child_session(Session(rooms[t["room"]], t, pretalx_locale, config["pretalx_url_prefix"]))
+            s = Session(rooms[t["room"]], t, pretalx_locale, config["pretalx_url_prefix"])
+            s.set_video(videos)
+            m.add_child_session(s)
             is_child_session = True
             break
     if not is_child_session:
-        sessions.append(Session(rooms[t["room"]], t, pretalx_locale, config["pretalx_url_prefix"]))
+        s = Session(rooms[t["room"]], t, pretalx_locale, config["pretalx_url_prefix"])
+        s.set_video(videos)
+        sessions.append(s)
 
 # sort children of metasessions by start time
 for m in metasessions:
