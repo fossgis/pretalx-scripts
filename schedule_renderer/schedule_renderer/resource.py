@@ -8,6 +8,7 @@ class Resource:
             self.url = "{}{}".format(url_prefix, kwargs["resource"])
         self.description = kwargs["description"]
         self.code = code
+        self.href = None
 
     def from_list(resources, code, url_prefix):
         result = []
@@ -32,6 +33,7 @@ class Resource:
         return "{}_{}".format(self.code, filename_escaped)
 
     def set_href(self, directory):
+        """Set href attribute to be used for links in templates"""
         self.href = "{}/{}".format(directory, self.get_cleaned_filename())
 
     def get_destination_path(self, destination_directory):
