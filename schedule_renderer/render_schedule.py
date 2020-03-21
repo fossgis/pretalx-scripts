@@ -181,12 +181,14 @@ for t in talks:
         if t["room"] == m.room.id and transform_pretalx_date(t["start"]) >= m.start and transform_pretalx_date(t["end"]) <= m.end:
             s = Session(rooms[t["room"]], t, pretalx_locale, config["pretalx_url_prefix"])
             s.set_video(videos)
+            s.set_resources_href(config["attachment_subdirectory"])
             m.add_child_session(s)
             is_child_session = True
             break
     if not is_child_session:
         s = Session(rooms[t["room"]], t, pretalx_locale, config["pretalx_url_prefix"])
         s.set_video(videos)
+        s.set_resources_href(config["attachment_subdirectory"])
         sessions.append(s)
 
 # sort children of metasessions by start time
@@ -304,11 +306,6 @@ for s in sessions_starts:
     for d in days:
         if d.is_same_day(s.start):
             s.fill_gaps(d)
-
-# build URLs for attachments of sessions
-for s in sessions:
-    for r in s.resources:
-        r.set_href(config["attachment_subdirectory"])
 
 autoescape = jinja2.select_autoescape(default=True) if not args.disable_autoescape else False
 # Render table

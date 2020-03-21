@@ -60,6 +60,10 @@ class AbstractSession:
     def set_video(self, videos):
         self.video = videos.get(self.code, None)
 
+    def set_resources_href(self, attachment_subdirectory):
+        for r in self.resources:
+            r.set_href(attachment_subdirectory)
+
 
 class ContinuedSession(AbstractSession):
     """second/third part of a session spanning over more than one slot"""

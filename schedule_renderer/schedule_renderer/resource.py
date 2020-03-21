@@ -41,8 +41,7 @@ class Resource:
         return result
 
     def get_cleaned_filename(self):
-        filename = filename_from_url(self.url)
-        filename_escaped = clean_filename(filename)
+        filename_escaped = clean_filename(self.url)
         return "{}_{}".format(self.code, filename_escaped)
 
     def set_href(self, directory):
