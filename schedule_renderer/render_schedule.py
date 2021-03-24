@@ -51,6 +51,7 @@ parser.add_argument("--confirmed-only", action="store_true", help="confirmed tal
 parser.add_argument("--disable-autoescape", action="store_true", help="Disable HTML autoescape in templates. Mind to add '|e' all over your template instead")
 parser.add_argument("--editor-api", action="store_true", help="talks JSON file is from the internal API used by the schedule editor, not from the public API")
 parser.add_argument("-l", "--locale", type=str, help="locale, e.g. de_DE", default="en_EN")
+parser.add_argument("-L", "--locale-pretalx", type=str, help="If the name of the locale used by pretalx is not the part before the dash in the value of --locale, use this argument. Using this argument is necessary if your event uses Pretalx's 'de-formal' (Germany with 'Sie' instead of 'Du') locale instead of simple 'de'.", default="en_EN")
 parser.add_argument("-m", "--metasession-template", type=str, help="path to template for metasessions")
 parser.add_argument("-M", "--mediacccde", type=argparse.FileType("r"), help="Path to metadata list by media.ccc.de in JSON format, usually available at https://media.ccc.de/public/conferences/MEDIA_CCC_DE_EVENT_ID")
 parser.add_argument("--no-abstracts", action="store_true", help="don't render abstract detail pages")
@@ -70,7 +71,10 @@ if args.editor_api and not args.submissions:
     logging.error("--editor-api needs to be called with --submissions")
     exit(1)
 
-pretalx_locale = args.locale.split("_")
+pretalx_locale = [args.locale_pretalx, ""]
+if not pretalx_locale[0]:
+    pretalx_locale = args.locale.split("_")
+
 if len(pretalx_locale) < 1 or len(pretalx_locale) > 2:
     # We accept a single "en" as well.
     logging.error("locale is invalid, please use the following format: de_DE (got: {})".format(args.locale))
