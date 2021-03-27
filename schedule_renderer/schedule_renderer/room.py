@@ -22,4 +22,4 @@ class Room:
         self.occupied += duration/30.0
 
     def __repr__(self):
-        return "Room {} {} {} {} {}".format(self.id, self.name, self.position, self.occupied, self.video)
+        return "Room(id={}, name={}, position={}, occupied={}, video={})".format(self.id, self.name, self.position, self.occupied, self.video)

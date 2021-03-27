@@ -32,8 +32,11 @@ class Slot:
         tmp_sessions = []
         sessions_idx = 0
         if len(day.rooms) < len(self.sessions):
-            print(day.rooms)
-            print("-------------")
+            print("ERROR: More sessions than rooms. If you have a session longer than max_length, increase max_length.")
+            print("Rooms:")
+            for r in day.rooms:
+                print("  {}".format(r))
+            print("-------------\nSessions\n-------------")
             for s in self.sessions:
                 print(s)
                 print(",,,,,,,,,,,,,,,,,,,,,")

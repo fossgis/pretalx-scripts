@@ -56,6 +56,7 @@ parser.add_argument("-m", "--metasession-template", type=str, help="path to temp
 parser.add_argument("-M", "--mediacccde", type=argparse.FileType("r"), help="Path to metadata list by media.ccc.de in JSON format, usually available at https://media.ccc.de/public/conferences/MEDIA_CCC_DE_EVENT_ID")
 parser.add_argument("--no-abstracts", action="store_true", help="don't render abstract detail pages")
 parser.add_argument("-s", "--speakers", type=argparse.FileType("r"), help="JSON file from /speakers API endpoint")
+parser.add_argument("--skip-questions", action="store_true", help="Skip parsing questions.")
 parser.add_argument("--submissions", type=argparse.FileType("r"), help="JSON file from /submissions API endpoint. Required if --editor-api is used.")
 parser.add_argument("--time-from", type=str, help="Render events only after this, format: YYYY-MM-DD HH:MM")
 parser.add_argument("--time-to", type=str, help="Render events only until this time, format: YYYY-MM-DD HH:MM")
@@ -85,6 +86,10 @@ locale.setlocale(locale.LC_TIME, args.locale)
 config = {"no_video_rooms": [], "timezone": "UTC", "break_min_threshold": 10, "max_length": 240, "extra_sessions": [], "no_abstract_for": [], "attachment_subdirectory": "/attachments", "pretalx_url_prefix": "https://pretalx.com/", "meta_sessions": [], "ignore_sessions": []}
 if args.config:
     config.update(json.load(args.config))
+if args.skip_questions:
+    config["skip_questions"] = True
+else:
+    config["skip_questions"] = False
 
 event_timezone = pytz.timezone(config["timezone"])
 
@@ -183,14 +188,14 @@ for t in talks:
     is_child_session = False
     for m in metasessions:
         if t["room"] == m.room.id and transform_pretalx_date(t["start"]) >= m.start and transform_pretalx_date(t["end"]) <= m.end:
-            s = Session(rooms[t["room"]], t, pretalx_locale, config["pretalx_url_prefix"])
+            s = Session(rooms[t["room"]], t, pretalx_locale, config["pretalx_url_prefix"], config["skip_questions"])
             s.set_video(videos)
             s.set_resources_href(config["attachment_subdirectory"])
             m.add_child_session(s)
             is_child_session = True
             break
     if not is_child_session:
-        s = Session(rooms[t["room"]], t, pretalx_locale, config["pretalx_url_prefix"])
+        s = Session(rooms[t["room"]], t, pretalx_locale, config["pretalx_url_prefix"], config["skip_questions"])
         s.set_video(videos)
         s.set_resources_href(config["attachment_subdirectory"])
         sessions.append(s)

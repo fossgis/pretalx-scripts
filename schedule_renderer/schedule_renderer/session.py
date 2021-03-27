@@ -76,6 +76,9 @@ class ContinuedSession(AbstractSession):
     def type(self):
         return SessionType.CONTINUED
 
+    def __repr__(self):
+        return "ContinueSession(start={}, end={}, room={})".format(self.start, self.end, self.room)
+
 
 class Break(AbstractSession):
     def __init__(self, start, end, room, name, url):
@@ -187,7 +190,7 @@ class MetaSession(AbstractSession):
 
 
 class Session(AbstractSession):
-    def __init__(self, room, talk, locale, url_prefix):
+    def __init__(self, room, talk, locale, url_prefix, skip_questions=False):
         super(Session, self).__init__(transform_pretalx_date(talk["start"]), transform_pretalx_date(talk["end"]), room)
         self.room = room
         self.talk = talk
@@ -197,7 +200,10 @@ class Session(AbstractSession):
         self.long_abstract = talk.get("description")
         self.speakers = [ Speaker(s["name"], s["code"]) for s in talk.get("speakers", []) ]
         self.duration = talk.get("duration")
-        self.questions = Question.build_from_list(talk.get("answers", []), locale)
+        if not skip_questions:
+            self.questions = Question.build_from_list(talk.get("answers", []), locale)
+        else:
+            self.questions = {}
         if "url" in talk and "code" not in talk:
             self.code = url_to_code(talk["url"])
         else:
